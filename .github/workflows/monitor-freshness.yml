@@ -1,0 +1,61 @@
+name: Monitor published GTFS freshness
+
+on:
+  schedule:
+    # Independently monitor the published Pages data every 3 hours (UTC).
+    - cron: '15 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: luzmaker-gtfs-freshness
+  cancel-in-progress: false
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check published data is under 30 hours old
+        id: check
+        continue-on-error: true
+        run: python scripts/check_freshness.py
+      - name: Open or update a single alert issue if the check fails
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title="LuzMaker: Published GTFS data freshness alert"
+          issue=$(gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -z "$issue" ]; then
+            gh issue create --repo "$GH_REPO" --title "$title" --assignee "$GITHUB_REPOSITORY_OWNER" --body "The independent monitor could not verify that the **published** GTFS data is newer than 30 hours. This can indicate a stale publication, an invalid catalog, or a temporary fetch failure.
+
+          Source: https://moshhhhhh.github.io/LuzMaker/data/index.json
+
+          Check the [monitoring runs](https://github.com/$GH_REPO/actions/workflows/monitor-freshness.yml) and the [build/publish runs](https://github.com/$GH_REPO/actions/workflows/gtfs-pages.yml).
+
+          This issue is automatically closed when the monitor recovers."
+          else
+            echo "Alert issue #$issue already open; avoiding duplicates."
+          fi
+      - name: Close alert issue on recovery
+        if: steps.check.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title="LuzMaker: Published GTFS data freshness alert"
+          gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title --jq ".[] | select(.title == \"$title\") | .number" | while read -r issue; do
+            [ -n "$issue" ] || continue
+            gh issue close "$issue" --repo "$GH_REPO" --comment "Freshness is back below 30 hours; closing the alert."
+          done
+      - name: Mark workflow failed if freshness check failed
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "::error::Published GTFS data may be stale or unavailable. See the freshness check step and alert issue."
+          exit 1
