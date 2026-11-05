@@ -32,7 +32,7 @@ const localStorage={getItem:()=>null,setItem(){}};
 const sandbox={
  console,document:doc,window:{addEventListener(){},print(){}},
  localStorage,crypto:{randomUUID:()=>"test-id"},navigator:{},URL:{createObjectURL(){return "blob:fake"},revokeObjectURL(){}},
- Blob,Date,Map,Set,Array,JSON,Number,String,Math,Promise,structuredClone,
+ Blob,Date,Map,Set,Array,JSON,Number,String,Math,Promise,Intl,structuredClone,
  alert(m){throw new Error("Unexpected alert: "+m)},confirm:()=>true,setTimeout,clearTimeout,
  fetch:async url=>{
   let value=url.endsWith("/data/index.json")?idx:data[url.split("/").at(-1)];
@@ -78,7 +78,17 @@ async function main(){
  assert(html.includes('id="homeResults"'),"Home button exists");
  assert(html.includes('id="downloadActions"'),"Downloads are above the result tables");
  assert(html.indexOf('id="downloadActions"')<html.indexOf('id="resultTables"'),"Downloads appear first");
- assert(html.includes('["תאריך","קו","מסלול","תחנה","שעה"]'),"CSV exports stop name");
+ assert(html.includes('["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]'),"CSV exports both calendar dates and stop name");
+ assert.equal(await run('hebrewDate("2026-11-05")'),"כ״ה בחשוון תשפ״ז","Hebrew calendar date for standard year");
+ assert.equal(await run('hebrewDate("2024-03-24")'),"י״ד באדר ב׳ תשפ״ד","Leap-year Adar II");
+ assert.equal(await run('hebrewDate("2024-02-24")'),"ט״ו באדר א׳ תשפ״ד","Leap-year Adar I");
+ assert.equal(await run('gregorianDate("2024-03-24")'),"24.3.2024","Civil date preserved");
+ assert((await run('dateDisplay("2024-03-24")')).includes("2024"),"Dual date view by default");
+ await run('updateCalendarView("hebrew")');
+ assert.equal(await run('dateDisplay("2024-03-24")'),"י״ד באדר ב׳ תשפ״ד","Hebrew-only calendar mode");
+ await run('updateCalendarView("gregorian")');
+ assert.equal(await run('dateDisplay("2024-03-24")'),"24.3.2024","Gregorian-only calendar mode");
+ await run('updateCalendarView("both")');
  assert(!html.includes('<th style="width:70%">מסלול</th>'),"Timetable no longer repeats route name column");
  // Ensure route timings use the date mask and are not mixed with adjacent numbers.
  const day=await run('scheduleFor("2026-11-05")');
