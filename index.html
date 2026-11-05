@@ -175,15 +175,51 @@ function dateISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0
 function dayDate(n){const d=new Date();if(d.getHours()<3)d.setDate(d.getDate()-1);d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return d}
 // Work with civil noon to avoid timezone drift across daylight-saving transitions.
 // The platform's Hebrew calendar provides leap years and Adar I/II without a third-party service.
-const hebrewDateFormatter=new Intl.DateTimeFormat("he-IL-u-ca-hebrew",{dateStyle:"full",timeZone:"Asia/Jerusalem"});
-function isoCivilDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00+02:00")}
+// ICU/Intl calculates the Hebrew calendar date; our formatter only renders its
+// numeric fields as customary Hebrew letters. No independent calendar arithmetic.
+const hebrewDateFormatter=new Intl.DateTimeFormat("he-IL-u-ca-hebrew",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
+const hebrewEnglishMonthFormatter=new Intl.DateTimeFormat("en-US-u-ca-hebrew",{month:"long",timeZone:"UTC"});
+function isoCivilDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00Z")}
+function hebrewNumeral(value){
+ let n=Number(value);
+ if(!Number.isInteger(n)||n<1||n>9999)throw Error("Invalid Hebrew calendar number");
+ n%=1000; // Customary modern Hebrew year is written without the 5000 prefix.
+ const values=[[400,"ת"],[300,"ש"],[200,"ר"],[100,"ק"],[90,"צ"],[80,"פ"],[70,"ע"],[60,"ס"],[50,"נ"],[40,"מ"],[30,"ל"],[20,"כ"],[10,"י"],[9,"ט"],[8,"ח"],[7,"ז"],[6,"ו"],[5,"ה"],[4,"ד"],[3,"ג"],[2,"ב"],[1,"א"]];
+ let result="";
+ for(const [amount,letter] of values){
+  while(n>=amount){
+   // Avoid spelling the sacred names with 15 / 16.
+   if(n===15||n===16){result+="ט"+(n===15?"ו":"ז");n=0;break}
+   result+=letter;n-=amount;
+  }
+ }
+ return result.length===1?result+"׳":result.slice(0,-1)+"״"+result.slice(-1);
+}
+const hebrewMonthNames={
+ "Tishri":"תשרי","Tishrei":"תשרי","Heshvan":"חשוון","Cheshvan":"חשוון",
+ "Kislev":"כסלו","Tevet":"טבת","Shevat":"שבט","Shvat":"שבט",
+ "Adar":"אדר","Adar I":"אדר א׳","Adar 1":"אדר א׳","Adar II":"אדר ב׳","Adar 2":"אדר ב׳",
+ "Nisan":"ניסן","Nissan":"ניסן","Iyar":"אייר","Iyyar":"אייר",
+ "Sivan":"סיוון","Tamuz":"תמוז","Tammuz":"תמוז","Av":"אב","Elul":"אלול"
+};
+function hebrewMonth(value,date){
+ // Browser ICU data can supply the month number even with Hebrew locale.
+ // The English Hebrew-calendar formatter gives its named counterpart.
+ const normalized=String(value).trim();
+ if(/[א-ת]/.test(normalized))return normalized;
+ const english=hebrewEnglishMonthFormatter.formatToParts(date).find(part=>part.type==="month")?.value||"";
+ const mapped=hebrewMonthNames[english];
+ if(!mapped)throw Error("Hebrew calendar month is unsupported: "+english);
+ return mapped;
+}
 function hebrewDate(iso){
- const parts=hebrewDateFormatter.formatToParts(isoCivilDate(iso));
- const wanted=parts.filter(p=>["day","month","year"].includes(p.type));
- const day=wanted.find(p=>p.type==="day")?.value;
- const month=wanted.find(p=>p.type==="month")?.value;
- const year=wanted.find(p=>p.type==="year")?.value;
- return day&&month&&year?day+" ב"+month+" "+year:hebrewDateFormatter.format(isoCivilDate(iso));
+ const date=isoCivilDate(iso);
+ const parts=hebrewDateFormatter.formatToParts(date);
+ const get=kind=>parts.find(part=>part.type===kind)?.value;
+ const day=get("day"),month=get("month"),year=get("year");
+ if(!day||!month||!year)throw Error("Hebrew calendar date unavailable");
+ const numberOrHebrew=value=>/^\\d+$/.test(value)?hebrewNumeral(Number(value)):value;
+ return numberOrHebrew(day)+" ב"+hebrewMonth(month,date)+" "+numberOrHebrew(year);
 }
 function gregorianDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00").toLocaleDateString("he-IL",{day:"2-digit",month:"2-digit",year:"numeric",timeZone:"UTC"})}
 function dateDisplay(iso,style=calendarView){
