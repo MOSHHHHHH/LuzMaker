@@ -647,10 +647,19 @@ function printSelected(index){
  window.print();
 }
 window.addEventListener("afterprint",()=>document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude")));
-function downloadCSV(list,filename){
+function csvRows(list,includeTimetableName=false){
  const cells=[["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]];
+ if(includeTimetableName)cells[0].unshift("שם הלוח");
  const legend=makeLineLegend(selectedGroup.lines);
- for(const a of list)for(const row of a.rows)cells.push([a.dates.map(hebrewDate).join("; "),a.dates.map(gregorianDate).join("; "),labeledLine(row,legend),row.route,row.stop,timeString(row.min)]);
+ for(const a of list)for(const row of a.rows){
+  const values=[a.dates.map(hebrewDate).join("; "),a.dates.map(gregorianDate).join("; "),labeledLine(row,legend),row.route,row.stop,timeString(row.min)];
+  if(includeTimetableName)values.unshift(a.alias||"");
+  cells.push(values);
+ }
+ return cells;
+}
+function downloadCSV(list,filename,includeTimetableName=false){
+ const cells=csvRows(list,includeTimetableName);
  const csv="\uFEFF"+cells.map(row=>row.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=filename+".csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
@@ -670,7 +679,7 @@ $("generate").onclick=createResults;
 $("backResults").onclick=()=>show("generator");
 $("homeResults").onclick=()=>show("home");
 $("resultTables").onclick=()=>{};
-$("downloadActions").onclick=e=>{const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");else if(pdf)printSelected(Number(pdf.dataset.print));else if(e.target.id==="printPdf")printSelected(null);else if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים")};
+$("downloadActions").onclick=e=>{const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");else if(pdf)printSelected(Number(pdf.dataset.print));else if(e.target.id==="printPdf")printSelected(null);else if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים",true)};
 $("helpBtn").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
 init();
 </script>
