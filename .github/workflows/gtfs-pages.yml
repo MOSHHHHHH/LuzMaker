@@ -1,0 +1,88 @@
+name: Build and publish LZM Maker GTFS
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/gtfs-pages.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '35 5 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: lzm-maker-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test calendar and 03:00 transport-day behavior
+        run: python -m unittest discover -s tests -v
+      - name: Check browser JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          src = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", src, re.S)
+          assert len(scripts) == 1, "Expected exactly one inline script"
+          Path("/tmp/lzm-maker-ui.js").write_text(scripts[0], encoding="utf-8")
+          PY
+          node --check /tmp/lzm-maker-ui.js
+      - name: UI regression smoke test
+        run: node tests/ui-smoke.cjs
+      - name: Build schedules from official daily GTFS
+        run: python scripts/build_gtfs.py --output _site
+      - name: Include the website
+        run: |
+          cp index.html _site/index.html
+          touch _site/.nojekyll
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('_site/data/index.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          assert len(data['lines']) >= 20, 'Generated dataset is incomplete'
+          assert Path('_site/index.html').stat().st_size > 1000
+          print('Validated', len(data['lines']), 'available bus numbers')
+          PY
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+          retention-days: 2
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
