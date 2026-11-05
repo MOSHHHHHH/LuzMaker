@@ -152,7 +152,7 @@ const calendarKey="lzm-maker-calendar-view-v1";
 const calendars=["both","hebrew","gregorian"];
 let calendarView=(()=>{try{const v=localStorage.getItem(calendarKey);return calendars.includes(v)?v:"both"}catch{return "both"}})();
 let catalog=null, editing=null, working=[], selectedGroup=null, chosenDates=[], analyzed=[], selectedTypes=[], generated=[],analysisTicket=0;
-let cache=new Map();
+let cache=new Map(),operatorIcons={};
 
 let groups=load(),lineTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
@@ -275,6 +275,13 @@ async function init(){
   const value=await response.json();
   if(value.format!==2||!Array.isArray(value.lines)||!value.start)throw Error("invalid data format");
   catalog=value;
+  try{
+   const iconResponse=await fetch("./data/operator-icons.json",{cache:"no-store"});
+   if(iconResponse.ok){
+    const icons=await iconResponse.json();
+    if(icons&&typeof icons==="object"&&!Array.isArray(icons))operatorIcons=icons;
+   }
+  }catch{} // Missing optional favicons never prevent timetable use.
   notify("לוחות מתוכננים · נתונים עד "+new Date(value.updated).toLocaleString("he-IL")+
    " · יום תחבורתי 03:00–02:59");
   // Reflect the publication's own timestamp. Transport-day data may still be usable
@@ -329,7 +336,7 @@ function renderRouteCards(routes){
  $("routeCards").innerHTML=routes.map(r=>{
   const [from,to]=routeParts(r),agency=r.agency||"מפעיל לא ידוע";
   return '<button type="button" class="route-card" data-route="'+r.i+'" style="--operator:'+agencyHue(agency)+'" aria-pressed="false">'+
-  '<span class="route-card-top"><span class="operator-chip">'+operatorBrandHtml(agency)+'</span><span class="muted small">'+(r.stops?.length||0)+' תחנות</span></span>'+
+  '<span class="route-card-top"><span class="operator-chip">'+operatorBrandHtml(agency,r.agencyId)+'</span><span class="muted small">'+(r.stops?.length||0)+' תחנות</span></span>'+
   '<strong class="route-title">'+safe(from)+(to?' <span aria-hidden="true">←</span> '+safe(to):"")+'</strong>'+
   '<span class="muted small">בחר מסלול</span></button>';
  }).join("");
@@ -423,7 +430,7 @@ async function addLine(silent=false){
   const stop=route?.stops.find(s=>String(s.id)===stopId);
   if(!stop)throw Error("יש לבחור תחנה תקינה.");
   if(!working.some(l=>l.routeId===route.id&&l.stopId===stopId)){
-   working.push({number:actual,routeId:route.id,routeName:routeLabel(route),agency:route.agency||"",stopId:String(stop.id),stopName:stop.name});
+   working.push({number:actual,routeId:route.id,routeName:routeLabel(route),agency:route.agency||"",agencyId:route.agencyId||"",stopId:String(stop.id),stopName:stop.name});
   }
   renderSelected();editorMessage("");
   $("addStatus").textContent="הקו נוסף בהצלחה ✓";
@@ -542,7 +549,7 @@ function makeLineLegend(lines){
   const key=String(line.number),identity=key+"\u001f"+line.routeId+"\u001f"+line.stopId;
   if(legend.has(identity))continue;
   const ordinal=counts.get(key)||0;counts.set(key,ordinal+1);
-  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:line.agency||"",number:key,routeId:line.routeId,stopId:line.stopId});
+  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:line.agency||"",agencyId:line.agencyId||"",number:key,routeId:line.routeId,stopId:line.stopId});
  }
  return legend;
 }
@@ -552,30 +559,20 @@ function legendIdentity(number,routeId,stopId){
 function labeledLine(row,legend){
  return legend.get(legendIdentity(row.line,row.routeId,row.stopId))?.label||row.line;
 }
-// Match only known operators. Do not guess a logo for unknown or similar names.
-function operatorLogo(name){
- const normalized=String(name||"").trim().replace(/\s+/g," ");
- if(!normalized)return "";
- const mappings=[
-  [/^(?:אגד(?:\s|$)|Egged\b)/i,"egged"],
-  [/^(?:קווים(?:\s|$)|Kavim\b)/i,"kavim"],
-  [/^(?:מטרופולין(?:\s|$)|Metropoline\b)/i,"metropoline"],
-  [/^(?:סופרבוס(?:\s|$)|Superbus\b)/i,"superbus"],
-  [/^(?:נתיב אקספרס(?:\s|$)|Nateev Express\b)/i,"nateev-express"],
-  [/^(?:בית שמש אקספרס(?:\s|$)|Beit Shemesh Express\b)/i,"beit-shemesh-express"]
- ];
- return mappings.find(([pattern])=>pattern.test(normalized))?.[1]||"";
-}
-function operatorBrandHtml(agency){
+// Only icons downloaded from official GTFS agency_url are displayed.
+// Never construct remote URLs from untrusted names or agency identifiers.
+function operatorBrandHtml(agency,agencyId){
  const name=String(agency||"").trim();
  if(!name)return "";
- const logo=operatorLogo(name);
- const image=logo?'<img class="operator-logo" src="./logos/'+logo+'.svg" alt="" loading="eager" onerror="this.hidden=true" decoding="async">':"";
+ const src=Object.prototype.hasOwnProperty.call(operatorIcons,String(agencyId||""))
+  ?operatorIcons[String(agencyId||"")]:"";
+ const valid=typeof src==="string"&&/^\.\/operator-icons\/[a-f0-9]{20}\.(png|ico|webp|jpg)$/.test(src);
+ const image=valid?'<img class="operator-logo" src="'+src+'" alt="" loading="eager" onerror="this.hidden=true" decoding="async">':"";
  return '<span class="operator-brand">'+image+'<span>'+safe(name)+'</span></span>';
 }
 function resultLegendHtml(legend){
  return '<h3>מקרא קווים ותחנות</h3><div class="legend-grid">'+[...legend.values()].map(item=>
-  '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong>'+operatorBrandHtml(item.agency)+'<div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
+  '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong>'+operatorBrandHtml(item.agency,item.agencyId)+'<div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
  ).join("")+'</div>';
 }
 function createResults(readSelection=true){
