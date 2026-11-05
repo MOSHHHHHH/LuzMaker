@@ -52,8 +52,8 @@ jobs:
         run: node tests/ui-smoke.cjs
       - name: Build schedules from official daily GTFS
         run: python scripts/build_gtfs.py --output _site
-      - name: Cache available operator logos for offline printing
-        run: python scripts/fetch_operator_logos.py
+      - name: Cache official operator-site favicons for offline printing
+        run: python scripts/fetch_operator_favicons.py
       - name: Include the website
         run: |
           cp index.html favicon.svg _site/
