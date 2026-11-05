@@ -8,7 +8,7 @@ const els=new Map();
 function el(id){
  if(!els.has(id))els.set(id,{
   id,value:"",innerHTML:"",textContent:"",disabled:false,style:{},dataset:{},
-  classList:{add(){},remove(){},toggle(){}},
+  classList:{add(){},remove(){},toggle(){},contains(){return false}},
   setAttribute(){},addEventListener(){},scrollIntoView(){},showModal(){},close(){},
   getAttribute(){return null}
  });
