@@ -70,6 +70,16 @@ async function main(){
  assert.equal((await run('analyzed.length')),2,"Timetables must be detected automatically and grouped by identical schedules");
  assert.equal((await run('analyzed[0].dates.length')),1,"One date has the mocked departure");
  assert.equal((await run('analyzed[1].dates.length')),13,"Identical remaining dates are grouped");
+ // Line legend uses real line numbers; duplicates start with (ב), never (א).
+ const legend=await run('makeLineLegend([{number:"134",routeId:"r1",stopId:"s1",routeName:"מסלול 1",stopName:"תחנה 1"},{number:"134",routeId:"r2",stopId:"s2",routeName:"מסלול 2",stopName:"תחנה 2"},{number:"134",routeId:"r3",stopId:"s3",routeName:"מסלול 3",stopName:"תחנה 3"},{number:"134א",routeId:"ra",stopId:"sa",routeName:"מסלול אות",stopName:"תחנה אות"}])');
+ assert.deepEqual([...legend.values()].map(x=>x.label),["134","134 (ב)","134 (ג)","134א"],"Labels should distinguish duplicates without confusing actual lettered lines");
+ assert.equal(await run('labeledLine({line:"134",routeId:"r2",stopId:"s2"},makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"},{number:"134",routeId:"r2",stopId:"s2"}]))'),"134 (ב)");
+ assert(html.includes('id="resultLegend"'),"Printable legend exists");
+ assert(html.includes('id="homeResults"'),"Home button exists");
+ assert(html.includes('id="downloadActions"'),"Downloads are above the result tables");
+ assert(html.indexOf('id="downloadActions"')<html.indexOf('id="resultTables"'),"Downloads appear first");
+ assert(html.includes('["תאריך","קו","מסלול","תחנה","שעה"]'),"CSV exports stop name");
+ assert(!html.includes('<th style="width:70%">מסלול</th>'),"Timetable no longer repeats route name column");
  // Ensure route timings use the date mask and are not mixed with adjacent numbers.
  const day=await run('scheduleFor("2026-11-05")');
  assert.equal(day.length,1);
