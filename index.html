@@ -601,7 +601,7 @@ function makeLineLegend(lines){
   const currentRoute=cache.get(line.number)?.routes.find(route=>route.id===line.routeId);
   legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:currentRoute?.agency||line.agency||"",agencyId:currentRoute?.agencyId||line.agencyId||"",number:key,routeId:line.routeId,stopId:line.stopId});
  }
- return colorizeLineLegend(legend);
+ return legend;
 }
 function legendIdentity(number,routeId,stopId){
  return String(number)+"\u001f"+routeId+"\u001f"+stopId;
@@ -631,7 +631,7 @@ function createResults(readSelection=true){
   generated=analyzed.filter(x=>selectedTypes.includes(x.id)).map(x=>({...x,alias:(document.getElementById("alias-"+x.id)?.value||suggestedAlias(x.dates)).trim()}));
  }
  if(!generated.length){alert("בחר לוח אחד לפחות");return}
- const legend=makeLineLegend(selectedGroup.lines);
+ const legend=colorizeLineLegend(makeLineLegend(selectedGroup.lines));
  $("printTitle").textContent="לו״ז מייקר — "+selectedGroup.name;
  $("resultLegend").innerHTML=resultLegendHtml(legend);
  $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
