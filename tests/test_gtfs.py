@@ -46,7 +46,7 @@ class TestGtfs(unittest.TestCase):
                 {"trip_id":"late-27","stop_id":"A","stop_sequence":"1","departure_time":"27:00:00"},
             ])
             content = {
-                "agency.txt": (["agency_id","agency_name"], [{"agency_id":"a","agency_name":"Agency"}]),
+                "agency.txt": (["agency_id","agency_name","agency_url"], [{"agency_id":"a","agency_name":"Agency","agency_url":"https://example.org/"}]),
                 "routes.txt": (["route_id","route_short_name","route_long_name","route_type","agency_id"], routes),
                 "trips.txt": (["trip_id","route_id","service_id","direction_id"], trips),
                 "stops.txt": (["stop_id","stop_name","stop_code"], stops),
@@ -65,8 +65,12 @@ class TestGtfs(unittest.TestCase):
             idx = json.loads((out/"data"/"index.json").read_text())
             self.assertEqual(idx["start"], "2026-11-05")
             self.assertEqual(len(idx["lines"]), 21)
+            agencies = json.loads((out/"data"/"agencies.json").read_text())
+            self.assertEqual(agencies["a"]["url"], "https://example.org/")
+
             filename = dict(idx["lines"])["100"]
             line = json.loads((out/"data"/"lines"/filename).read_text())
+            self.assertEqual(line["routes"][0]["agencyId"], "a")
             records = line["routes"][0]["t"]["A"]
             pairs = {(mask, m) for mask, *minutes in records for m in minutes}
             self.assertIn((1, 1619), pairs)  # 02:59 on Nov 6 -> Nov 5
