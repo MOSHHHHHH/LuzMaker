@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1456a0">
+<title>לו״ז מייקר — בטא</title>
+<style>
+:root{font-family:Arial,"Noto Sans Hebrew",sans-serif;color:#16243a;background:#f3f6fb;line-height:1.5;color-scheme:light}
+*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;border-radius:10px;border:1px solid #c9d5e5;padding:10px 16px;background:white;color:#183451}button:hover{background:#f1f6fd}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #77b8fa;outline-offset:2px}
+.primary{background:#1659a9;color:white;border-color:#1659a9}.primary:hover{background:#104984}.danger{color:#a72c33}.muted{color:#5b6d80}.small{font-size:.88rem}.pill{display:inline-flex;background:#e9eff8;border-radius:20px;padding:3px 10px;font-size:.85rem;margin:2px}.wrap{max-width:980px;margin:auto;padding:20px}.header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.logo{display:flex;gap:12px;align-items:center}.logo-icon{border-radius:14px;background:#1659a9;color:#fff;padding:13px;font-size:1.3rem}h1{margin:0;font-size:1.45rem}h2{font-size:1.2rem;margin:0 0 12px}h3{margin:0 0 10px;font-size:1.05rem}p{margin:7px 0 15px}.panel{background:#fff;border:1px solid #dce4f0;border-radius:16px;padding:20px;margin-top:18px;box-shadow:0 3px 12px #1e46740b}.hero{background:linear-gradient(120deg,#e6f1ff,#fff)}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.grow{flex:1}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.card{border:1px solid #dce4f0;border-radius:12px;padding:16px}.badge{background:#fff3d6;border-radius:8px;padding:7px 11px;font-size:.9rem}.notice{border-right:4px solid #e6a900;background:#fff9e9;padding:12px;border-radius:8px;margin-top:15px}.hidden{display:none!important}label{display:block;font-weight:600;margin:12px 0 5px}input,select{width:100%;max-width:100%;border:1px solid #b9c9dd;border-radius:9px;padding:11px;background:white;color:inherit}.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.tabs{display:flex;gap:8px}.tabs button[aria-pressed=true]{background:#dceafd;border-color:#1659a9;color:#154e90}.line-entry{padding:12px;border:1px solid #d9e4f0;border-radius:10px;margin:10px 0}.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}.day{min-height:74px;padding:7px 2px}.day[aria-pressed=true]{background:#d9eaff;border:2px solid #1659a9}.day small{display:block}.result{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #e3e9f3;text-align:right}th{background:#f3f7fd}footer{padding:28px 0;color:#637184;font-size:.8rem}.actions{display:flex;gap:8px;flex-wrap:wrap}html{scroll-behavior:smooth}body{background:radial-gradient(ellipse at 90% 0,#e8f2ff 0,transparent 36%),#f3f6fb}
+button{transition:background .15s ease,border-color .15s ease,transform .12s ease}
+.primary:not(:disabled):active{transform:scale(.98)}
+.hero{padding:26px;background:linear-gradient(120deg,#e5f1ff,#fff 68%)}.panel{box-shadow:0 6px 25px #163c690b}
+#groupCards .card{background:#fff;display:flex;flex-direction:column;gap:7px}
+#groupCards .card .actions{margin-top:auto}
+#editor h3{border-bottom:1px solid #e6edf7;padding-bottom:8px}
+input:focus,select:focus{border-color:#2476c5}
+#editorError{background:#fff4f3;color:#8f2032}
+#addStatus{color:#23784f}
+#smartResults .line-entry{background:#f8faff}
+#smartResults .line-entry:has(input:checked){border-color:#92bce9;background:#f3f8ff}
+#sourceNotice{font-size:.9rem}
+@media(max-width:600px){.hero{padding:17px}#editor .form-grid{grid-template-columns:1fr}.tabs button{flex:1;font-size:.9rem}}
+input[type=search]{font-size:.85rem;background:#fbfdff}input:disabled{background:#eff3f8;opacity:.7}.suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.suggestions button{padding:5px 11px;font-size:.85rem;border-radius:99px;background:#f7faff}.suggestions button.exact{background:#dceaff;border-color:#79b1e9}.card{transition:transform .15s ease,box-shadow .15s ease}.card:hover{transform:translateY(-2px);box-shadow:0 8px 20px #173e6910}.primary:disabled{opacity:.55;cursor:wait}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:600px){.wrap{padding:12px}.panel{padding:14px}.days{gap:3px}.day{min-height:65px;font-size:.9rem}.day small{font-size:.67rem}.actions button{flex:1}}
+@media print{.print-exclude{display:none!important}header,.no-print,footer{display:none!important}body{background:white}.panel{box-shadow:none;border:none;padding:0}.print-only{display:block!important}table{font-size:11pt}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="header no-print">
+ <div class="logo"><span class="logo-icon" aria-hidden="true">🚌</span><div><h1>לו״ז מייקר <span class="pill">בטא</span></h1><span class="muted small">לוחות זמנים אישיים לתחבורה ציבורית</span></div></div>
+ <div class="row"><button id="helpBtn">עזרה</button><a href="https://docs.google.com/forms/d/e/1FAIpQLSfMFmC7esFcy0zpMIzT0kk-CluXSRKBRBIVHNPxKRlUW_YZUA/viewform?usp=dialog" target="_blank" rel="noopener">משוב ↗</a></div>
+</header>
+<div class="notice no-print" id="sourceNotice" role="status">בודק זמינות נתוני תחבורה...</div>
+<main>
+<section class="panel hero no-print" id="home">
+ <div class="row between"><div><h2>הקבוצות שלי</h2><p class="muted">שמור קווים ותחנות פעם אחת והפק לוחות זמנים מתי שתרצה.</p></div><button class="primary" id="newGroup">＋ קבוצה חדשה</button></div>
+ <div class="cards" id="groupCards"></div>
+ <p class="muted small" id="emptyGroups">עדיין אין קבוצות שמורות.</p>
+</section>
+<section class="panel no-print hidden" id="editor">
+ <div class="row between"><h2 id="editorTitle">קבוצת קווים חדשה</h2><button id="cancelEdit">חזרה</button></div>
+ <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: מהבית לירושלים">
+ <h3 style="margin-top:22px">הוספת קו ותחנה</h3>
+ <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 134" list="availableLines"><datalist id="availableLines"></datalist><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">ניתן לחפש גם קווים עם אות, למשל 15א או א15.</div></div><div><label for="routeSelect">מסלול</label><select id="routeSelect" disabled><option>תחילה בחר קו</option></select><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
+ <div class="actions" style="margin-top:15px"><button id="addLine" class="primary">＋ הוסף לקבוצה</button><span class="muted small" id="addStatus" aria-live="polite"></span></div>
+ <div id="selectedLines" aria-live="polite"></div><div class="notice hidden" id="editorError" role="alert"></div>
+ <div class="actions" style="margin-top:20px"><button class="primary" id="saveGroup">שמור והמשך ליצירת לו״ז ←</button><button id="cancelEdit2">ביטול</button></div>
+</section>
+<section class="panel no-print hidden" id="generator">
+ <div class="row between"><h2 id="generatorTitle">יצירת לוח זמנים</h2><button id="backGen">חזרה</button></div>
+ <p class="muted" id="genLines"></p>
+ <div class="tabs" role="group" aria-label="אופן בחירת ימים"><button id="smartMode" aria-pressed="true">בחירה חכמה</button><button id="manualMode" aria-pressed="false">בחירה ידנית</button></div>
+ <p id="modeHelp" class="muted small">נזהה לוחות זמנים זהים ונציע רק נציג אחד מכל קבוצה.</p><p class="muted small" id="dateSummary" aria-live="polite"></p>
+ <div class="days" id="dayButtons" style="margin-top:16px"></div>
+ <div id="smartResults" class="hidden"></div>
+ <div id="analyzeStatus" class="muted small" role="status" aria-live="polite"></div><div class="actions" style="margin-top:18px"><button id="analyze" class="primary">זהה לוחות זמנים</button><button id="generate" class="primary hidden">הפק לוחות נבחרים</button></div>
+</section>
+<section class="panel hidden" id="results">
+ <div class="row between no-print"><h2>לוחות הזמנים שלך</h2><button id="backResults">חזרה</button></div>
+ <div class="notice no-print" id="resultSource"></div>
+ <div id="resultTables"></div>
+ <div class="actions no-print" id="downloadActions"></div>
+</section>
+</main>
+<footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
+</div>
+<dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. אחר כך בחרו ימים והפיקו לוח זמנים. בבחירה החכמה ימי פעילות בעלי נסיעות זהות מקובצים יחד.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const storeKey="lzm-maker-beta-groups-v1";
+let catalog=null, demo=false, editing=null, working=[], selectedGroup=null, mode="smart", chosenDates=[], analyzed=[], selectedTypes=[], generated=[];
+let cache=new Map();
+const demoData={version:"DEMO",date:"דוגמה בלבד",lines:{"134":{routes:[{id:"demo-134-a",name:"ירושלים ← גבעת זאב (הדגמה)",stops:[{id:"1552",name:"ירמיהו / ארגמן"},{id:"4116",name:"שמגר / ירמיהו"}],trips:{"1552":{"0":[480,540,600],"1":[480,540,600],"2":[480,540,600],"3":[480,540,600],"4":[480,540,600],"5":[510,570],"6":[1140,1200]},"4116":{"0":[485,545,605],"1":[485,545,605],"2":[485,545,605],"3":[485,545,605],"4":[485,545,605],"5":[515,575],"6":[1145,1205]}}}]}, "402":{routes:[{id:"demo-402-a",name:"ירושלים ← בני ברק (הדגמה)",stops:[{id:"3000",name:"תחנה מרכזית (הדגמה)"}],trips:{"3000":{"0":[420,480],"1":[420,480],"2":[420,480],"3":[420,480],"4":[420,480],"5":[450],"6":[1260]}}}]}}};
+let groups=load(),lineTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
+function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
+function baseLine(s){return normalizeLine(s).match(/\d+/)?.[0]||null}
+function lineMatches(value){
+ if(!catalog||!value.trim())return [];
+ const terms=catalog.lines.map(p=>p[0]);
+ const exact=terms.filter(n=>normalizeLine(n)===normalizeLine(value));
+ const related=terms.filter(n=>!exact.includes(n)&&baseLine(n)&&baseLine(n)===baseLine(value));
+ return [...exact,...related].slice(0,18);
+}
+function editorMessage(message){$("editorError").textContent=message;$("editorError").classList.toggle("hidden",!message)}
+function renderLineSuggestions(){
+ const value=$("lineNumber").value.trim(),matches=lineMatches(value);
+ $("lineSuggestions").innerHTML=matches.map(n=>'<button type="button" data-suggestion="'+safe(n)+'" class="'+(normalizeLine(n)===normalizeLine(value)?"exact":"")+'">'+safe(n)+'</button>').join("");
+ $("lineHint").textContent=!value?"הזן מספר קו, כולל אות אם יש.":!matches.length?"לא נמצאו קווים תואמים.":matches.some(n=>normalizeLine(n)===normalizeLine(value))?"נמצאה התאמה מדויקת — בחר מסלול ותחנה.":"נמצאו קווים קרובים אך לא זהים; בחר את השילוט הרצוי.";
+}
+
+function load(){try{const v=JSON.parse(localStorage.getItem(storeKey)||"[]");return Array.isArray(v)?v:[]}catch{return []}}
+function persist(){localStorage.setItem(storeKey,JSON.stringify(groups))}
+function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function notify(message){$("sourceNotice").textContent=message}
+function show(id){["home","editor","generator","results"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function dateISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}
+function dayDate(n){const d=new Date();if(d.getHours()<3)d.setDate(d.getDate()-1);d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return d}
+function dateLabel(d){return d.toLocaleDateString("he-IL",{day:"2-digit",month:"2-digit",weekday:"short"})}
+function timeString(minutes){return String(Math.floor(minutes/60)%24).padStart(2,"0")+":"+String(minutes%60).padStart(2,"0")}
+async function init(){
+ try {
+  const response=await fetch("./data/index.json",{cache:"no-store"});
+  if(!response.ok)throw Error("index unavailable");
+  const value=await response.json();
+  if(value.format!==2||!Array.isArray(value.lines)||!value.start)throw Error("invalid data format");
+  catalog=value;
+  notify("לוחות מתוכננים · נתונים עד "+new Date(value.updated).toLocaleString("he-IL")+
+   " · יום תחבורתי 03:00–02:59");
+ }catch(e){
+  catalog={lines:[],start:dateISO(dayDate(0)),days:0};
+  notify("נתוני משרד התחבורה אינם זמינים כרגע. לא יוצגו נתוני הדגמה או שעות לא מאומתות.");
+ }
+ $("availableLines").innerHTML=catalog.lines.map(pair=>'<option value="'+safe(pair[0])+'"></option>').join("");
+ renderGroups();
+}
+async function getLine(n){
+ if(cache.has(n))return cache.get(n);
+ const hit=catalog.lines.find(x=>x[0]===n);
+ if(!hit)throw Error("הקו "+n+" אינו קיים בנתונים העדכניים");
+ const response=await fetch("./data/lines/"+encodeURIComponent(hit[1]));
+ if(!response.ok)throw Error("לא ניתן לטעון נתונים לקו "+n);
+ const data=await response.json();
+ if(!Array.isArray(data.routes))throw Error("קובץ נתונים לא תקין");
+ cache.set(n,data);
+ return data;
+}
+function renderGroups(){
+ $("groupCards").innerHTML=groups.map(g=>'<article class="card"><h3>'+safe(g.name)+'</h3><p class="muted small">'+g.lines.length+' קווים</p><p>'+g.lines.map(l=>'<span class="pill">'+safe(l.number)+'</span>').join("")+'</p><div class="actions"><button class="primary" data-generate="'+safe(g.id)+'">צור לו״ז</button><button data-edit="'+safe(g.id)+'">עריכה</button><button class="danger" data-delete="'+safe(g.id)+'">מחק</button></div></article>').join("");
+ $("emptyGroups").classList.toggle("hidden",groups.length>0)
+}
+function editGroup(id){
+ const g=groups.find(x=>x.id===id);editing=id||null;working=g?structuredClone(g.lines):[];
+ $("editorTitle").textContent=g?"עריכת קבוצת קווים":"קבוצת קווים חדשה";
+ $("groupName").value=g?.name||"";
+ $("lineNumber").value="";$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
+ renderSelected();show("editor")
+}
+function renderSelected(){
+ $("selectedLines").innerHTML=working.length?"<h3>הקווים שנוספו ("+working.length+")</h3>"+working.map((l,i)=>'<div class="line-entry row between"><span><strong>'+safe(l.number)+'</strong> · '+safe(l.routeName)+' · '+safe(l.stopName)+'</span><button class="danger" data-remove="'+i+'">הסר</button></div>').join(""):"<p class='muted small'>עדיין לא נבחרו קווים.</p>"
+}
+function currentLine(){
+ const n=normalizeLine($("lineNumber").value);
+ return catalog.lines.find(p=>normalizeLine(p[0])===n)?.[0];
+}
+function applyRouteFilter(){
+ const actual=currentLine(),data=cache.get(actual);
+ if(!data)return;
+ const q=$("routeFilter").value.trim().toLocaleLowerCase("he");
+ const original=$("routeSelect").value;
+ const filtered=data.routes.map((r,i)=>({...r,i})).filter(r=>!q||[r.name,r.agency,r.alternative,r.route_desc].some(v=>String(v||"").toLocaleLowerCase("he").includes(q)));
+ $("routeSelect").innerHTML='<option value="">בחר מסלול ('+filtered.length+' מתאימים)</option>'+
+ filtered.map(r=>'<option value="'+r.i+'">'+safe(r.name)+(r.alternative&&r.alternative!=="#"?" · חלופה "+safe(r.alternative):"")+(r.agency?" · "+safe(r.agency):"")+'</option>').join("");
+ if(filtered.some(r=>String(r.i)===original))$("routeSelect").value=original;
+ else if(filtered.length===1){$("routeSelect").value=String(filtered[0].i);chooseRoute()}
+ else{$("stopSelect").disabled=true;$("stopFilter").disabled=true}
+}
+function applyStopFilter(){
+ const actual=currentLine(),data=cache.get(actual),i=Number($("routeSelect").value);
+ const route=data?.routes[i];if(!route||$("routeSelect").value==="")return;
+ const q=$("stopFilter").value.trim().toLocaleLowerCase("he");
+ const selected=$("stopSelect").value;
+ const stops=route.stops.filter(s=>!q||[s.name,s.code,s.id].some(v=>String(v||"").toLocaleLowerCase("he").includes(q)));
+ $("stopSelect").innerHTML='<option value="">בחר תחנה ('+stops.length+' מתאימות)</option>'+
+ stops.map(s=>'<option value="'+safe(s.id)+'">'+safe(s.name)+(s.code?" · "+safe(s.code):"")+'</option>').join("");
+ if(stops.some(s=>String(s.id)===selected))$("stopSelect").value=selected;
+ else if(stops.length===1)$("stopSelect").value=String(stops[0].id);
+}
+async function chooseLine(){
+ const n=$("lineNumber").value.trim(),token=++lineTicket;
+ $("routeSelect").disabled=true;$("stopSelect").disabled=true;$("routeFilter").disabled=true;$("stopFilter").disabled=true;
+ $("routeFilter").value="";$("stopFilter").value="";
+ $("routeSelect").innerHTML='<option value="">בחר מספר קו</option>';
+ $("stopSelect").innerHTML='<option value="">בחר מסלול</option>';
+ renderLineSuggestions();
+ const actual=catalog.lines.find(p=>normalizeLine(p[0])===normalizeLine(n))?.[0];
+ if(!actual)return;
+ $("routeSelect").innerHTML='<option value="">טוען מסלולים...</option>';
+ try{
+  const data=await getLine(actual);
+  if(token!==lineTicket||$("lineNumber").value.trim()!==n)return;
+  $("routeSelect").innerHTML='<option value="">בחר מסלול ('+data.routes.length+')</option>'+data.routes.map((r,i)=>'<option value="'+i+'">'+safe(r.name)+(r.alternative&&r.alternative!=="#"? " · חלופה "+safe(r.alternative):"")+(r.agency?" · "+safe(r.agency):"")+'</option>').join("");
+  $("routeSelect").disabled=false;$("routeFilter").disabled=false;
+  if(data.routes.length===1){$("routeSelect").value="0";await chooseRoute();}
+ }catch(e){if(token===lineTicket)editorMessage("שגיאה בטעינת מסלולים: "+e.message)}
+}
+async function chooseRoute(){
+ const n=$("lineNumber").value.trim(),i=Number($("routeSelect").value);
+ $("stopSelect").disabled=true;$("stopFilter").disabled=true;$("stopFilter").value="";$("stopSelect").innerHTML='<option value="">בחר תחנה</option>';
+ if($("routeSelect").value==="")return;
+ const actual=catalog.lines.find(p=>normalizeLine(p[0])===normalizeLine(n))?.[0];
+ if(!actual)return;
+ const route=(await getLine(actual)).routes[i];if(!route)return;
+ $("stopSelect").innerHTML='<option value="">בחר תחנה ('+route.stops.length+')</option>'+route.stops.map(s=>'<option value="'+safe(s.id)+'">'+safe(s.name)+(s.code?" · "+safe(s.code):"")+'</option>').join("");
+ $("stopSelect").disabled=false;$("stopFilter").disabled=false;
+ if(route.stops.length===1)$("stopSelect").value=String(route.stops[0].id);
+}
+async function addLine(silent=false){
+ if(addBusy)return false;
+ const n=$("lineNumber").value.trim(),ri=$("routeSelect").value,stopId=$("stopSelect").value;
+ if(!n||ri===""||!stopId){if(!silent)editorMessage("בחר מספר קו, מסלול ותחנה לפני ההוספה.");return false;}
+ addBusy=true;$("addLine").disabled=true;
+ try{
+  const actual=catalog.lines.find(p=>normalizeLine(p[0])===normalizeLine(n))?.[0];
+  if(!actual)throw Error("מספר הקו אינו מוכר. בחר קו תואם מהרשימה.");
+  const route=(await getLine(actual)).routes[Number(ri)];
+  const stop=route?.stops.find(s=>String(s.id)===stopId);
+  if(!stop)throw Error("יש לבחור תחנה תקינה.");
+  if(!working.some(l=>l.routeId===route.id&&l.stopId===stopId)){
+   working.push({number:actual,routeId:route.id,routeName:route.name,stopId:String(stop.id),stopName:stop.name});
+  }
+  renderSelected();editorMessage("");
+  $("addStatus").textContent="הקו נוסף בהצלחה ✓";
+  $("lineNumber").value="";$("routeSelect").innerHTML='<option>בחר קו</option>';$("stopSelect").innerHTML='<option>בחר מסלול</option>';
+  $("routeSelect").disabled=true;$("stopSelect").disabled=true;$("routeFilter").disabled=true;$("stopFilter").disabled=true;$("routeFilter").value="";$("stopFilter").value="";renderLineSuggestions();
+  return true;
+ }catch(e){editorMessage(e.message);return false}
+ finally{addBusy=false;$("addLine").disabled=false}
+}
+async function saveGroup(){
+ if(saveBusy)return;saveBusy=true;$("saveGroup").disabled=true;
+ try{
+  const name=$("groupName").value.trim();
+  if(!name)throw Error("יש להזין שם לקבוצה.");
+  if($("lineNumber").value.trim()&&!await addLine(true))throw Error("הקו האחרון עדיין לא הושלם. בחר מסלול ותחנה או נקה את שדה הקו.");
+  if(!working.length)throw Error("יש להוסיף לפחות קו אחד. בחר מספר קו, מסלול ותחנה.");
+  let id=editing;
+  if(editing){const g=groups.find(x=>x.id===editing);if(!g)throw Error("הקבוצה אינה קיימת.");g.name=name;g.lines=structuredClone(working);}
+  else{id=crypto.randomUUID?crypto.randomUUID():String(Date.now());groups.push({id,name,lines:structuredClone(working)});}
+  persist();renderGroups();editorMessage("");openGenerator(id);
+ }catch(e){editorMessage(e.message);$("editorError").scrollIntoView({behavior:"smooth",block:"nearest"});}
+ finally{saveBusy=false;$("saveGroup").disabled=false;}
+}
+function openGenerator(id){selectedGroup=groups.find(x=>x.id===id);if(!selectedGroup)return;mode="smart";chosenDates=[];analyzed=[];selectedTypes=[];
+ $("generatorTitle").textContent="יצירת לו״ז — "+selectedGroup.name;
+ $("genLines").textContent=selectedGroup.lines.map(x=>x.number+" · "+x.stopName).join(" | ");
+ setMode("smart");show("generator")
+}
+function availableDates(){
+ const result=[];
+ for(let i=0;i<(catalog.days||0);i++){
+  const d=new Date(catalog.start+"T12:00:00");
+  d.setDate(d.getDate()+i);
+  if(d>=dayDate(0))result.push(d);
+ }
+ return result;
+}
+function setMode(v){
+ mode=v;
+ $("smartMode").setAttribute("aria-pressed",v==="smart");
+ $("manualMode").setAttribute("aria-pressed",v==="manual");
+ chosenDates=v==="smart"?availableDates().map(dateISO):[];
+ $("modeHelp").textContent=v==="smart"?
+ "כברירת מחדל נבדוק את כל התאריכים הזמינים ונאחד ימים בעלי לוחות זהים. אפשר לבטל בחירת תאריכים.":
+ "בחר תאריכים באופן עצמאי, עד 5 ימים.";
+ $("analyze").textContent=v==="smart"?"זהה לוחות זמנים":"הצג לוחות נבחרים";
+ $("smartResults").classList.add("hidden");
+ $("generate").classList.add("hidden");
+ renderDays();
+}
+function renderDays(){
+ const dayNames=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
+ $("dayButtons").innerHTML=availableDates().map(d=>{
+  const iso=dateISO(d),selected=chosenDates.includes(iso);
+  return '<button class="day" data-date="'+iso+'" aria-pressed="'+selected+'" aria-label="'+safe(dateLabel(d))+'">'+
+    dayNames[d.getDay()]+'<br><strong>'+d.getDate()+'/'+(d.getMonth()+1)+
+    '</strong><small>'+(selected?"✓":"")+'</small></button>';
+ }).join("");
+ $("dateSummary").textContent=chosenDates.length+" ימים נבחרו מתוך "+availableDates().length+" ימים זמינים · יום תחבורתי 03:00 עד 02:59";
+ if(!catalog.days) $("dayButtons").innerHTML='<p class="muted">נתונים לא זמינים.</p>';
+}
+function chooseDate(iso){if(chosenDates.includes(iso))chosenDates=chosenDates.filter(x=>x!==iso);else if(mode==="smart"||chosenDates.length<5)chosenDates.push(iso);else{alert("בבחירה ידנית ניתן לבחור עד חמישה ימים");return}analyzed=[];$("smartResults").classList.add("hidden");$("generate").classList.add("hidden");renderDays()}
+async function scheduleFor(iso){
+ const index=Math.round((new Date(iso+"T12:00:00")-new Date(catalog.start+"T12:00:00"))/86400000);
+ if(index<0||index>=catalog.days)throw Error("התאריך מחוץ לטווח הנתונים");
+ const mask=1<<index,rows=[];
+ for(const l of selectedGroup.lines){
+  const data=await getLine(l.number);
+  const route=data.routes.find(r=>r.id===l.routeId);
+  if(!route)throw Error("מסלול "+l.number+" השתנה במקור הנתונים. יש לעדכן את הקבוצה.");
+  const stop=route.stops.find(s=>s.id===l.stopId);
+  if(!stop)throw Error("תחנה "+l.stopName+" אינה זמינה במסלול. יש לעדכן את הקבוצה.");
+  const entries=route.t?.[l.stopId]||[];
+  const minutes=entries.filter(entry=>(entry[0]&mask)!==0).flatMap(entry=>entry.slice(1));
+  for(const m of minutes)rows.push({line:l.number,route:route.name,stop:l.stopName,min:m,routeId:l.routeId,stopId:l.stopId});
+ }
+ rows.sort((a,b)=>a.min-b.min||a.line.localeCompare(b.line,"he"));
+ return rows;
+}
+function signature(rows){return JSON.stringify(rows.map(x=>[x.line,x.routeId,x.stopId,x.min]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))))}
+async function analyze(){
+ if(!chosenDates.length){$("analyzeStatus").textContent="בחר לפחות תאריך אחד.";return}
+ $("analyze").disabled=true;$("analyze").textContent="מחשב...";$("analyzeStatus").textContent="משווה את זמני הנסיעות...";
+ try{const all=[];for(const [i,iso] of chosenDates.slice().sort().entries()){$("analyzeStatus").textContent="מעבד יום "+(i+1)+" מתוך "+chosenDates.length;all.push({iso,rows:await scheduleFor(iso)});}
+ if(mode==="manual"){analyzed=all.map((d,i)=>({id:i,dates:[d.iso],rows:d.rows}));}
+ else{const bySig=new Map();for(const d of all){const key=signature(d.rows);if(bySig.has(key))bySig.get(key).dates.push(d.iso);else bySig.set(key,{id:bySig.size,dates:[d.iso],rows:d.rows})}analyzed=[...bySig.values()]}
+ selectedTypes=analyzed.map(x=>x.id);renderAnalysis();$("analyzeStatus").textContent="זוהו "+analyzed.length+" לוחות שונים מתוך "+chosenDates.length+" ימים."
+ }catch(e){$("analyzeStatus").textContent="לא ניתן להפיק: "+e.message}
+ finally{$("analyze").disabled=false;$("analyze").textContent=mode==="smart"?"זהה לוחות זמנים":"הצג לוחות נבחרים"}
+}
+function suggestedAlias(dates){
+ const w=dates.map(x=>new Date(x+"T12:00:00").getDay());
+ if(w.every(d=>d<=4))return "אמצע שבוע";
+ if(w.every(d=>d===5))return "יום שישי";
+ if(w.every(d=>d===6))return "מוצ״ש";
+ return dates.length===1?new Date(dates[0]+"T12:00:00").toLocaleDateString("he-IL"):"לוח מיוחד";
+}
+function renderAnalysis(){
+ $("smartResults").classList.remove("hidden");
+ $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+a.dates.map(safe).join(" · ")+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
+ $("generate").classList.remove("hidden")
+}
+function createResults(){
+ selectedTypes=[...document.querySelectorAll("[data-type]:checked")].map(e=>Number(e.dataset.type));
+ generated=analyzed.filter(x=>selectedTypes.includes(x.id)).map(x=>({...x,alias:(document.getElementById("alias-"+x.id)?.value||suggestedAlias(x.dates)).trim()}));
+ if(!generated.length){alert("בחר לוח אחד לפחות");return}
+ $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
+ $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3 style="margin-top:24px">'+safe(a.alias)+' — '+safe(a.dates.join(" · "))+'</h3><table><thead><tr><th style="width:12%">קו</th><th style="width:70%">מסלול</th><th style="width:18%">שעה</th></tr></thead><tbody>'+ (a.rows.length?a.rows.map(r=>'<tr><td>'+safe(r.line)+'</td><td>'+safe(r.route)+'</td><td>'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="3">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+'</tbody></table><div class="actions no-print" style="margin:14px 0"><button data-csv="'+i+'">הורדת CSV</button><button data-print="'+i+'">הדפסה / PDF ללוח זה</button></div></section>').join("");
+ $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / שמירה כ־PDF</button><button id="allCsv">הורדת CSV לכל הימים</button>';
+ show("results")
+}
+function printSelected(index){
+ document.querySelectorAll("#resultTables .result").forEach((node,i)=>node.classList.toggle("print-exclude",index!==null&&i!==index));
+ window.print();
+}
+window.addEventListener("afterprint",()=>document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude")));
+function downloadCSV(list,filename){
+ const cells=[["תאריך","קו","מסלול","שעה"]];
+ for(const a of list)for(const row of a.rows)cells.push([a.dates.join("; "),row.line,row.route,timeString(row.min)]);
+ const csv="\uFEFF"+cells.map(row=>row.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=filename+".csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
+}
+$("newGroup").onclick=()=>editGroup(null);$("cancelEdit").onclick=$("cancelEdit2").onclick=()=>show("home");
+$("lineNumber").addEventListener("input",()=>{clearTimeout(lookupTimer);renderLineSuggestions();lookupTimer=setTimeout(chooseLine,260);});
+$("lineNumber").addEventListener("change",()=>{clearTimeout(lookupTimer);chooseLine()});
+$("routeFilter").addEventListener("input",applyRouteFilter);
+$("stopFilter").addEventListener("input",applyStopFilter);
+$("lineSuggestions").onclick=e=>{const b=e.target.closest("[data-suggestion]");if(!b)return;$("lineNumber").value=b.dataset.suggestion;clearTimeout(lookupTimer);chooseLine()};
+$("routeSelect").onchange=chooseRoute;$("addLine").onclick=()=>addLine(false);$("saveGroup").onclick=saveGroup;
+$("selectedLines").onclick=e=>{const b=e.target.closest("[data-remove]");if(b){working.splice(Number(b.dataset.remove),1);renderSelected()}};
+$("groupCards").onclick=e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;if(d.edit)editGroup(d.edit);else if(d.generate)openGenerator(d.generate);else if(d.delete&&confirm("למחוק את הקבוצה?")){groups=groups.filter(g=>g.id!==d.delete);persist();renderGroups()}};
+$("backGen").onclick=() =>show("home");$("smartMode").onclick=()=>setMode("smart");$("manualMode").onclick=()=>setMode("manual");
+$("dayButtons").onclick=e=>{const b=e.target.closest("[data-date]");if(b)chooseDate(b.dataset.date)};
+$("analyze").onclick=analyze;$("generate").onclick=createResults;$("backResults").onclick=()=>show("generator");
+$("resultTables").onclick=e=>{const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");if(pdf)printSelected(Number(pdf.dataset.print))};
+$("downloadActions").onclick=e=>{if(e.target.id==="printPdf")printSelected(null);if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים")};
+$("helpBtn").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
+init();
+</script>
+</body></html>
