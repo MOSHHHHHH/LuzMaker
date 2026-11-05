@@ -86,6 +86,8 @@ input,select{min-height:46px;border-radius:12px}
 .calendar-preference button[aria-pressed="true"]{color:#fff;background:#155dc1;border-color:#155dc1}
 #smartResults strong,.result h3{overflow-wrap:anywhere}
 @media print{.calendar-preference{display:none!important}}
+
+#sourceNotice.stale-data{border-right:5px solid #c87b00;background:#fff1d6;color:#683e00;font-weight:700}
 </style>
 </head>
 <body>
@@ -209,6 +211,16 @@ async function init(){
   catalog=value;
   notify("לוחות מתוכננים · נתונים עד "+new Date(value.updated).toLocaleString("he-IL")+
    " · יום תחבורתי 03:00–02:59");
+  // Reflect the publication's own timestamp. Transport-day data may still be usable
+  // when publication is stale, so show a visible warning rather than fabricating data.
+  const updatedAt=Date.parse(value.updated);
+  const ageHours=(Date.now()-updatedAt)/3600000;
+  if(!Number.isFinite(ageHours)||ageHours>=30||ageHours<-.25){
+   $("sourceNotice").classList.add("stale-data");
+   notify("⚠ נתוני התחבורה באתר לא עודכנו במשך 30 שעות לפחות (או שמועד העדכון אינו תקין). מומלץ לאמת את זמני הנסיעות במקור הרשמי לפני שימוש.");
+  }else{
+   $("sourceNotice").classList.remove("stale-data");
+  }
  }catch(e){
   catalog={lines:[],start:dateISO(dayDate(0)),days:0};
   notify("נתוני משרד התחבורה אינם זמינים כרגע. לא יוצגו נתוני הדגמה או שעות לא מאומתות.");
