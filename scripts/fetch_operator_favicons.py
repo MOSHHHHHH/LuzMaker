@@ -184,30 +184,47 @@ def google_favicon(site):
 
 def favicon_for(operator):
     key, agency = operator
-    site = official_site_url(agency.get("url"))
     name = str(agency.get("name") or key).strip()
-    if not safe_url(site):
-        return key, name, None, None, "missing/unsafe GTFS website"
-    data, ext, result = direct_favicon(site)
-    if data:
-        return key, name, data, ext, result
-    fallback, fallback_ext, fallback_result = google_favicon(site)
-    if fallback:
-        return key, name, fallback, fallback_ext, fallback_result
-    return key, name, None, None, result + "; " + fallback_result
+    original = agency.get("url", "")
+    extra_sites = agency.get("fallback_urls", [])
+    candidates = [original, *extra_sites]
+    attempted, problems = set(), []
+    for index, raw_site in enumerate(candidates):
+        site = official_site_url(raw_site)
+        if not site or site in attempted:
+            continue
+        attempted.add(site)
+        if not safe_url(site):
+            problems.append("GTFS URL invalid" if index == 0 else "fallback URL invalid")
+            continue
+        # Within each site, always try direct discovery before Google.
+        data, ext, result = direct_favicon(site)
+        if data:
+            return key, name, data, ext, result, site, "gtfs" if index == 0 else "fallback"
+        proxy_data, proxy_ext, proxy_result = google_favicon(site)
+        if proxy_data:
+            return key, name, proxy_data, proxy_ext, proxy_result, site, "gtfs" if index == 0 else "fallback"
+        problems.append(("GTFS " if index == 0 else "fallback ") + result + "; " + proxy_result)
+    return key, name, None, None, " | ".join(problems) or "missing website", "", "missing"
 
 
 def build_icons(root):
     data = root / "data"
     agencies = json.loads((data / "agencies.json").read_text(encoding="utf-8"))
+    fallback_path = Path(__file__).resolve().parents[1] / "data" / "operator-website-fallbacks.json"
+    fallbacks = json.loads(fallback_path.read_text(encoding="utf-8")) if fallback_path.exists() else {}
+    for key, agency in agencies.items():
+        agency["fallback_urls"] = fallbacks.get(key, [])
     icons = root / "operator-icons"
     icons.mkdir(parents=True, exist_ok=True)
     mapping, report = {}, []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         futures = [pool.submit(favicon_for, item) for item in agencies.items()]
         for future in concurrent.futures.as_completed(futures):
-            key, name, payload, ext, source = future.result()
+            key, name, payload, ext, source, selected_site, site_kind = future.result()
             record = {"agency_id": key, "name": name, "website": agencies[key].get("url", ""),
+                      "fallback_websites": agencies[key].get("fallback_urls", []),
+                      "selected_website": selected_site, "website_source": site_kind,
                       "source": source, "status": "found" if payload else "missing"}
             if payload:
                 filename = hashlib.sha256(key.encode("utf-8")).hexdigest()[:20] + "." + ext
@@ -222,7 +239,8 @@ def build_icons(root):
     counts = {"direct": 0, "google": 0, "missing": 0}
     for row in report:
         counts[row["source"] if row["status"] == "found" else "missing"] += 1
-        print("Favicon:", row["agency_id"], row["name"], row["status"], row["source"], flush=True)
+        print("Favicon:", row["agency_id"], row["name"], row["status"], row["source"],
+              row["website_source"], row["selected_website"], flush=True)
     print(f"Favicons downloaded: {len(mapping)}/{len(agencies)} operators "
           f"(direct={counts['direct']}, google={counts['google']}, missing={counts['missing']})",
           flush=True)
