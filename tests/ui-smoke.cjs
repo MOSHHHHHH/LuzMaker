@@ -100,6 +100,16 @@ async function main(){
  assert(html.includes('id="downloadActions"'),"Downloads are above the result tables");
  assert(html.indexOf('id="downloadActions"')<html.indexOf('id="resultTables"'),"Downloads appear first");
  assert(html.includes('["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]'),"CSV exports both calendar dates and stop name");
+ // Combined export carries the selected timetable title in every data row.
+ const fixture='[{alias:"ימי חול",dates:["2026-11-05"],rows:[{line:"15א",routeId:"letter-15",stopId:"S15A",route:"מסלול חלופי",stop:"תחנה חלופית",min:520}]},{alias:"יום שישי",dates:["2026-11-06"],rows:[{line:"15א",routeId:"letter-15",stopId:"S15A",route:"מסלול חלופי",stop:"תחנה חלופית",min:540}]}]';
+ const combined=await run('csvRows('+fixture+',true)');
+ assert.equal(combined[0][0],"שם הלוח","Combined CSV includes name column");
+ assert.equal(combined[1][0],"ימי חול","First schedule label follows its rows");
+ assert.equal(combined[2][0],"יום שישי","Second schedule label follows its rows");
+ assert.equal(combined[1].length,7,"Combined CSV has seven columns");
+ assert.equal((await run('csvRows('+fixture+',false)'))[0].length,6,"Individual CSV preserves six columns");
+ assert(html.includes('downloadCSV(generated,"לוחות-זמנים",true)'),"All-CSV button includes timetable names");
+
  assert.equal(await run('hebrewDate("2026-11-05")'),"כ״ה בחשוון תשפ״ז","Hebrew calendar date for standard year");
  assert.equal(await run('hebrewDate("2025-12-08")'),"י״ח בכסלו תשפ״ו","Date should use Hebrew letters, not digits");
  assert.equal(await run('hebrewNumeral(15)'),"ט״ו","Special Hebrew numeral 15");
