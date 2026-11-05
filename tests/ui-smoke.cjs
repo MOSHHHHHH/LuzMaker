@@ -62,6 +62,13 @@ async function main(){
  assert.equal((await run("groups[0].lines[0].number")),"15א");
  assert.equal((await run("groups[0].lines[0].routeId")),"letter-15");
  assert.equal((await run("selectedGroup.id")),"test-id");
+ // Automatic timetable search starts upon entering the generator.
+ assert(!html.includes('id="manualMode"'),"Manual mode was removed");
+ assert(!html.includes('id="analyze"'),"Explicit analyze button was removed");
+ assert(html.includes('href="./favicon.svg"'),"Favicon linked");
+ for(let i=0;i<50 && (await run('analyzed.length'))===0;i++)await new Promise(resolve=>setTimeout(resolve,10));
+ assert.equal((await run('analyzed.length')),1,"Timetables must be detected automatically after saving");
+ assert.equal((await run('analyzed[0].dates.length')),1,"Current mock data has one available day");
  // Ensure route timings use the date mask and are not mixed with adjacent numbers.
  const day=await run('scheduleFor("2026-11-05")');
  assert.equal(day.length,1);
