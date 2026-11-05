@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from fetch_operator_favicons import FaviconLinks, build_icons, image_extension, safe_url
+from fetch_operator_favicons import FaviconLinks, build_icons, image_extension, safe_url, favicon_for, png_dimensions
 
 
 class FaviconTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class FaviconTests(unittest.TestCase):
             self.assertFalse(safe_url(url), url)
 
     def test_image_signature_required(self):
-        self.assertEqual(image_extension(b"\x89PNG\r\n\x1a\nanything"), "png")
+        self.assertEqual(image_extension(b"\x89PNG\r\n\x1a\n" + b"\x00"*16), "png")
         self.assertEqual(image_extension(b"\x00\x00\x01\x00anything"), "ico")
         self.assertIsNone(image_extension(b"<svg onload='alert(1)'></svg>"))
         self.assertIsNone(image_extension(b"<html>not an image</html>"))
@@ -29,6 +29,23 @@ class FaviconTests(unittest.TestCase):
                     '<link rel="stylesheet" href="/styles.css">')
         self.assertEqual(parser.links, [("/assets/icon.png", "64x64", "image/png")])
 
+    def test_touch_icon_detected(self):
+        parser = FaviconLinks()
+        parser.feed('<link rel="apple-touch-icon" sizes="180x180" href="/touch.png">')
+        self.assertEqual(parser.links[0][0], "/touch.png")
+
+    def test_google_only_when_direct_missing(self):
+        with patch("fetch_operator_favicons.safe_url", return_value=True), \
+             patch("fetch_operator_favicons.direct_favicon", return_value=(None, None, "none")), \
+             patch("fetch_operator_favicons.google_favicon", return_value=(b"png", "png", "google")):
+            key, name, data, ext, source = favicon_for(("42", {"name": "Operator", "url": "https://company.example"}))
+            self.assertEqual((key, name, source), ("42", "Operator", "google"))
+        with patch("fetch_operator_favicons.safe_url", return_value=True), \
+             patch("fetch_operator_favicons.direct_favicon", return_value=(b"local", "ico", "direct")), \
+             patch("fetch_operator_favicons.google_favicon") as google:
+            self.assertEqual(favicon_for(("42", {"name": "Operator", "url": "https://company.example"}))[4], "direct")
+            google.assert_not_called()
+
     def test_only_successful_agencies_in_local_manifest(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -38,13 +55,15 @@ class FaviconTests(unittest.TestCase):
                             "b": {"url": "", "name": "No image"}}))
             def fake_icon(item):
                 if item[0] == "a":
-                    return "a", b"\x89PNG\r\n\x1a\n" + b"abc", "png"
-                return "b", None, None
+                    return "a", "Test", b"\x89PNG\r\n\x1a\n" + b"\x00"*16, "png", "direct"
+                return "b", "No image", None, None, "missing/unsafe GTFS website"
             with patch("fetch_operator_favicons.favicon_for", side_effect=fake_icon):
                 build_icons(root)
             mapping = json.loads((root / "data" / "operator-icons.json").read_text())
             self.assertEqual(list(mapping), ["a"])
             self.assertTrue((root / mapping["a"].removeprefix("./")).exists())
+            report = json.loads((root / "data" / "operator-icons-report.json").read_text())
+            self.assertEqual([entry["status"] for entry in report], ["found", "missing"])
 
 
 if __name__ == "__main__":
