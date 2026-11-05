@@ -94,7 +94,11 @@ def image_extension(data):
 
 def favicon_for(operator):
     key, agency = operator
-    url = agency.get("url", "")
+    url = agency.get("url", "").strip()
+    # Older GTFS feeds sometimes publish an http:// website URL; try its
+    # HTTPS equivalent instead. Never download insecure HTTP content.
+    if url.lower().startswith("http://"):
+        url = "https://" + url[7:]
     if not safe_url(url):
         return key, None, None
     try:
