@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'favicon.svg'
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/gtfs-pages.yml'
@@ -53,7 +54,7 @@ jobs:
         run: python scripts/build_gtfs.py --output _site
       - name: Include the website
         run: |
-          cp index.html _site/index.html
+          cp index.html favicon.svg _site/
           touch _site/.nojekyll
           python - <<'PY'
           import json
@@ -62,6 +63,7 @@ jobs:
           data = json.loads(p.read_text(encoding='utf-8'))
           assert len(data['lines']) >= 20, 'Generated dataset is incomplete'
           assert Path('_site/index.html').stat().st_size > 1000
+          assert Path('_site/favicon.svg').exists()
           print('Validated', len(data['lines']), 'available bus numbers')
           PY
       - name: Configure GitHub Pages
