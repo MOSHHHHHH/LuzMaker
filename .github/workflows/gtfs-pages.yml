@@ -6,6 +6,7 @@ on:
       - 'index.html'
       - 'favicon.svg'
       - 'scripts/**'
+      - 'data/operator-website-fallbacks.json'
       - 'tests/**'
       - '.github/workflows/gtfs-pages.yml'
   workflow_dispatch:
