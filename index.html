@@ -549,7 +549,8 @@ function makeLineLegend(lines){
   const key=String(line.number),identity=key+"\u001f"+line.routeId+"\u001f"+line.stopId;
   if(legend.has(identity))continue;
   const ordinal=counts.get(key)||0;counts.set(key,ordinal+1);
-  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:line.agency||"",agencyId:line.agencyId||"",number:key,routeId:line.routeId,stopId:line.stopId});
+  const currentRoute=cache.get(line.number)?.routes.find(route=>route.id===line.routeId);
+  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:currentRoute?.agency||line.agency||"",agencyId:currentRoute?.agencyId||line.agencyId||"",number:key,routeId:line.routeId,stopId:line.stopId});
  }
  return legend;
 }
