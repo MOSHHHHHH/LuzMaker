@@ -38,13 +38,32 @@ class FaviconTests(unittest.TestCase):
         with patch("fetch_operator_favicons.safe_url", return_value=True), \
              patch("fetch_operator_favicons.direct_favicon", return_value=(None, None, "none")), \
              patch("fetch_operator_favicons.google_favicon", return_value=(b"png", "png", "google")):
-            key, name, data, ext, source = favicon_for(("42", {"name": "Operator", "url": "https://company.example"}))
+            key, name, data, ext, source, site, kind = favicon_for(("42", {"name": "Operator", "url": "https://company.example"}))
             self.assertEqual((key, name, source), ("42", "Operator", "google"))
         with patch("fetch_operator_favicons.safe_url", return_value=True), \
              patch("fetch_operator_favicons.direct_favicon", return_value=(b"local", "ico", "direct")), \
              patch("fetch_operator_favicons.google_favicon") as google:
             self.assertEqual(favicon_for(("42", {"name": "Operator", "url": "https://company.example"}))[4], "direct")
             google.assert_not_called()
+
+    def test_website_fallback_after_gtfs_failure(self):
+        attempts = []
+        def direct(site):
+            attempts.append(("direct", site))
+            return (b"image", "ico", "direct") if "verified.example" in site else (None, None, "HTTPError")
+        def google(site):
+            attempts.append(("google", site))
+            return None, None, "Google HTTP 404"
+        operator = ("37", {"name": "Operator", "url": "https://old.example/",
+                           "fallback_urls": ["https://verified.example/"]})
+        with patch("fetch_operator_favicons.safe_url", return_value=True), \
+             patch("fetch_operator_favicons.direct_favicon", side_effect=direct), \
+             patch("fetch_operator_favicons.google_favicon", side_effect=google):
+            key, name, data, ext, source, site, kind = favicon_for(operator)
+        self.assertEqual((source, kind, site), ("direct", "fallback", "https://verified.example/"))
+        self.assertEqual(attempts, [
+            ("direct", "https://old.example/"), ("google", "https://old.example/"),
+            ("direct", "https://verified.example/")])
 
     def test_only_successful_agencies_in_local_manifest(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -55,8 +74,8 @@ class FaviconTests(unittest.TestCase):
                             "b": {"url": "", "name": "No image"}}))
             def fake_icon(item):
                 if item[0] == "a":
-                    return "a", "Test", b"\x89PNG\r\n\x1a\n" + b"\x00"*16, "png", "direct"
-                return "b", "No image", None, None, "missing/unsafe GTFS website"
+                    return "a", "Test", b"\x89PNG\r\n\x1a\n" + b"\x00"*16, "png", "direct", "https://example.org", "gtfs"
+                return "b", "No image", None, None, "missing website", "", "missing"
             with patch("fetch_operator_favicons.favicon_for", side_effect=fake_icon):
                 build_icons(root)
             mapping = json.loads((root / "data" / "operator-icons.json").read_text())
@@ -64,6 +83,7 @@ class FaviconTests(unittest.TestCase):
             self.assertTrue((root / mapping["a"].removeprefix("./")).exists())
             report = json.loads((root / "data" / "operator-icons-report.json").read_text())
             self.assertEqual([entry["status"] for entry in report], ["found", "missing"])
+            self.assertEqual(report[0]["selected_website"], "https://example.org")
 
 
 if __name__ == "__main__":
