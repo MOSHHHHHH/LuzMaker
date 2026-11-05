@@ -80,6 +80,12 @@ input,select{min-height:46px;border-radius:12px}
  .result tr{break-inside:avoid}
 }
 @media(max-width:600px){.legend-grid{grid-template-columns:1fr}.day-download{width:100%;justify-content:space-between}}
+
+.calendar-preference{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 3px;padding:9px 12px;background:#fff;border:1px solid #dce5f2;border-radius:14px}
+.calendar-preference button{padding:7px 11px;font-size:.9rem}
+.calendar-preference button[aria-pressed="true"]{color:#fff;background:#155dc1;border-color:#155dc1}
+#smartResults strong,.result h3{overflow-wrap:anywhere}
+@media print{.calendar-preference{display:none!important}}
 </style>
 </head>
 <body>
@@ -89,6 +95,12 @@ input,select{min-height:46px;border-radius:12px}
  <div class="row"><button id="helpBtn">עזרה</button><a href="https://docs.google.com/forms/d/e/1FAIpQLSfMFmC7esFcy0zpMIzT0kk-CluXSRKBRBIVHNPxKRlUW_YZUA/viewform?usp=dialog" target="_blank" rel="noopener">משוב ↗</a></div>
 </header>
 <div class="notice no-print" id="sourceNotice" role="status">בודק זמינות נתוני תחבורה...</div>
+<div class="calendar-preference no-print" role="group" aria-label="אופן הצגת תאריכים">
+ <span class="small">תצוגת תאריכים:</span>
+ <button type="button" data-calendar="both" aria-pressed="true">עברי + לועזי</button>
+ <button type="button" data-calendar="hebrew" aria-pressed="false">עברי</button>
+ <button type="button" data-calendar="gregorian" aria-pressed="false">לועזי</button>
+</div>
 <main>
 <section class="panel hero no-print" id="home">
  <div class="row between"><div><h2>הקבוצות שלי</h2><p class="muted">שמור קווים ותחנות פעם אחת והפק לוחות זמנים מתי שתרצה.</p></div><button class="primary" id="newGroup">＋ קבוצה חדשה</button></div>
@@ -129,6 +141,9 @@ input,select{min-height:46px;border-radius:12px}
 "use strict";
 const $=id=>document.getElementById(id);
 const storeKey="lzm-maker-beta-groups-v1";
+const calendarKey="lzm-maker-calendar-view-v1";
+const calendars=["both","hebrew","gregorian"];
+let calendarView=(()=>{try{const v=localStorage.getItem(calendarKey);return calendars.includes(v)?v:"both"}catch{return "both"}})();
 let catalog=null, demo=false, editing=null, working=[], selectedGroup=null, chosenDates=[], analyzed=[], selectedTypes=[], generated=[],analysisTicket=0;
 let cache=new Map();
 const demoData={version:"DEMO",date:"דוגמה בלבד",lines:{"134":{routes:[{id:"demo-134-a",name:"ירושלים ← גבעת זאב (הדגמה)",stops:[{id:"1552",name:"ירמיהו / ארגמן"},{id:"4116",name:"שמגר / ירמיהו"}],trips:{"1552":{"0":[480,540,600],"1":[480,540,600],"2":[480,540,600],"3":[480,540,600],"4":[480,540,600],"5":[510,570],"6":[1140,1200]},"4116":{"0":[485,545,605],"1":[485,545,605],"2":[485,545,605],"3":[485,545,605],"4":[485,545,605],"5":[515,575],"6":[1145,1205]}}}]}, "402":{routes:[{id:"demo-402-a",name:"ירושלים ← בני ברק (הדגמה)",stops:[{id:"3000",name:"תחנה מרכזית (הדגמה)"}],trips:{"3000":{"0":[420,480],"1":[420,480],"2":[420,480],"3":[420,480],"4":[420,480],"5":[450],"6":[1260]}}}]}}};
@@ -156,7 +171,34 @@ function notify(message){$("sourceNotice").textContent=message}
 function show(id){["home","editor","generator","results"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function dateISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}
 function dayDate(n){const d=new Date();if(d.getHours()<3)d.setDate(d.getDate()-1);d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return d}
-function dateLabel(d){return d.toLocaleDateString("he-IL",{day:"2-digit",month:"2-digit",weekday:"short"})}
+// Work with civil noon to avoid timezone drift across daylight-saving transitions.
+// The platform's Hebrew calendar provides leap years and Adar I/II without a third-party service.
+const hebrewDateFormatter=new Intl.DateTimeFormat("he-IL-u-ca-hebrew",{dateStyle:"full",timeZone:"Asia/Jerusalem"});
+function isoCivilDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00+02:00")}
+function hebrewDate(iso){
+ const parts=hebrewDateFormatter.formatToParts(isoCivilDate(iso));
+ const wanted=parts.filter(p=>["day","month","year"].includes(p.type));
+ const day=wanted.find(p=>p.type==="day")?.value;
+ const month=wanted.find(p=>p.type==="month")?.value;
+ const year=wanted.find(p=>p.type==="year")?.value;
+ return day&&month&&year?day+" ב"+month+" "+year:hebrewDateFormatter.format(isoCivilDate(iso));
+}
+function gregorianDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00").toLocaleDateString("he-IL",{day:"2-digit",month:"2-digit",year:"numeric",timeZone:"UTC"})}
+function dateDisplay(iso,style=calendarView){
+ const heb=hebrewDate(iso),greg=gregorianDate(iso);
+ return style==="hebrew"?heb:style==="gregorian"?greg:heb+" ("+greg+")";
+}
+function dateLabel(d){return dateDisplay(dateISO(d))}
+function dateListDisplay(dates){return dates.map(iso=>dateDisplay(iso)).join(" · ")}
+function updateCalendarView(value){
+ if(!calendars.includes(value))return;
+ calendarView=value;
+ try{localStorage.setItem(calendarKey,value)}catch{}
+ for(const btn of document.querySelectorAll("[data-calendar]"))btn.setAttribute("aria-pressed",String(btn.dataset.calendar===value));
+ if(analyzed.length&&$("smartResults")&&!$("smartResults").classList.contains("hidden"))renderAnalysis();
+ if(generated.length&&$("results")&&!$("results").classList.contains("hidden"))createResults(false);
+}
+
 function timeString(minutes){return String(Math.floor(minutes/60)%24).padStart(2,"0")+":"+String(minutes%60).padStart(2,"0")}
 async function init(){
  try {
@@ -173,6 +215,7 @@ async function init(){
  }
  $("availableLines").innerHTML=catalog.lines.map(pair=>'<option value="'+safe(pair[0])+'"></option>').join("");
  renderGroups();
+ for(const btn of document.querySelectorAll("[data-calendar]"))btn.setAttribute("aria-pressed",String(btn.dataset.calendar===calendarView));
 }
 async function getLine(n){
  if(cache.has(n))return cache.get(n);
@@ -400,11 +443,11 @@ function suggestedAlias(dates){
  if(w.every(d=>d<=4))return "אמצע שבוע";
  if(w.every(d=>d===5))return "יום שישי";
  if(w.every(d=>d===6))return "מוצ״ש";
- return dates.length===1?new Date(dates[0]+"T12:00:00").toLocaleDateString("he-IL"):"לוח מיוחד";
+ return dates.length===1?dateDisplay(dates[0]):"לוח מיוחד";
 }
 function renderAnalysis(){
  $("smartResults").classList.remove("hidden");
- $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+a.dates.map(safe).join(" · ")+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
+ $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+safe(dateListDisplay(a.dates))+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
  $("generate").classList.remove("hidden")
 }
 // The first entry keeps its real line number. Repeated numbers use ב, ג, ד...
@@ -436,15 +479,17 @@ function resultLegendHtml(legend){
   '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong><div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
  ).join("")+'</div>';
 }
-function createResults(){
- selectedTypes=[...document.querySelectorAll("[data-type]:checked")].map(e=>Number(e.dataset.type));
- generated=analyzed.filter(x=>selectedTypes.includes(x.id)).map(x=>({...x,alias:(document.getElementById("alias-"+x.id)?.value||suggestedAlias(x.dates)).trim()}));
+function createResults(readSelection=true){
+ if(readSelection){
+  selectedTypes=[...document.querySelectorAll("[data-type]:checked")].map(e=>Number(e.dataset.type));
+  generated=analyzed.filter(x=>selectedTypes.includes(x.id)).map(x=>({...x,alias:(document.getElementById("alias-"+x.id)?.value||suggestedAlias(x.dates)).trim()}));
+ }
  if(!generated.length){alert("בחר לוח אחד לפחות");return}
  const legend=makeLineLegend(selectedGroup.lines);
  $("printTitle").textContent="לו״ז מייקר — "+selectedGroup.name;
  $("resultLegend").innerHTML=resultLegendHtml(legend);
  $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
- $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(a.dates.join(" · "))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
+ $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
  (a.rows.length?a.rows.map(r=>'<tr><td><strong class="line-number">'+safe(labeledLine(r,legend))+'</strong></td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
  '</tbody></table></section>').join("");
  $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
@@ -457,12 +502,13 @@ function printSelected(index){
 }
 window.addEventListener("afterprint",()=>document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude")));
 function downloadCSV(list,filename){
- const cells=[["תאריך","קו","מסלול","תחנה","שעה"]];
+ const cells=[["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]];
  const legend=makeLineLegend(selectedGroup.lines);
- for(const a of list)for(const row of a.rows)cells.push([a.dates.join("; "),labeledLine(row,legend),row.route,row.stop,timeString(row.min)]);
+ for(const a of list)for(const row of a.rows)cells.push([a.dates.map(hebrewDate).join("; "),a.dates.map(gregorianDate).join("; "),labeledLine(row,legend),row.route,row.stop,timeString(row.min)]);
  const csv="\uFEFF"+cells.map(row=>row.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=filename+".csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
+document.querySelector(".calendar-preference").onclick=e=>{const button=e.target.closest("[data-calendar]");if(button)updateCalendarView(button.dataset.calendar)};
 $("newGroup").onclick=()=>editGroup(null);$("cancelEdit").onclick=$("cancelEdit2").onclick=()=>show("home");
 $("lineNumber").addEventListener("input",()=>{clearTimeout(lookupTimer);renderLineSuggestions();lookupTimer=setTimeout(chooseLine,260);});
 $("lineNumber").addEventListener("change",()=>{clearTimeout(lookupTimer);chooseLine()});
