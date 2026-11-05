@@ -88,6 +88,11 @@ input,select{min-height:46px;border-radius:12px}
 @media print{.calendar-preference{display:none!important}}
 
 #sourceNotice.stale-data{border-right:5px solid #c87b00;background:#fff1d6;color:#683e00;font-weight:700}
+
+.operator-brand{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.85rem;color:#445b71;vertical-align:middle}
+.operator-logo{display:inline-block;width:34px;height:28px;object-fit:contain;flex:none;vertical-align:middle}
+.legend-entry .operator-brand{display:flex;margin:4px 0}
+@media print{.operator-logo{width:28px;height:23px;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 </style>
 </head>
 <body>
@@ -537,7 +542,7 @@ function makeLineLegend(lines){
   const key=String(line.number),identity=key+"\u001f"+line.routeId+"\u001f"+line.stopId;
   if(legend.has(identity))continue;
   const ordinal=counts.get(key)||0;counts.set(key,ordinal+1);
-  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,number:key,routeId:line.routeId,stopId:line.stopId});
+  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:line.agency||"",number:key,routeId:line.routeId,stopId:line.stopId});
  }
  return legend;
 }
@@ -547,9 +552,30 @@ function legendIdentity(number,routeId,stopId){
 function labeledLine(row,legend){
  return legend.get(legendIdentity(row.line,row.routeId,row.stopId))?.label||row.line;
 }
+// Match only known operators. Do not guess a logo for unknown or similar names.
+function operatorLogo(name){
+ const normalized=String(name||"").trim().replace(/\s+/g," ");
+ if(!normalized)return "";
+ const mappings=[
+  [/^(?:אגד(?:\s|$)|Egged\b)/i,"egged"],
+  [/^(?:קווים(?:\s|$)|Kavim\b)/i,"kavim"],
+  [/^(?:מטרופולין(?:\s|$)|Metropoline\b)/i,"metropoline"],
+  [/^(?:סופרבוס(?:\s|$)|Superbus\b)/i,"superbus"],
+  [/^(?:נתיב אקספרס(?:\s|$)|Nateev Express\b)/i,"nateev-express"],
+  [/^(?:בית שמש אקספרס(?:\s|$)|Beit Shemesh Express\b)/i,"beit-shemesh-express"]
+ ];
+ return mappings.find(([pattern])=>pattern.test(normalized))?.[1]||"";
+}
+function operatorBrandHtml(agency){
+ const name=String(agency||"").trim();
+ if(!name)return "";
+ const logo=operatorLogo(name);
+ const image=logo?'<img class="operator-logo" src="./logos/'+logo+'.svg" alt="" loading="eager" onerror="this.hidden=true" decoding="async">':"";
+ return '<span class="operator-brand">'+image+'<span>'+safe(name)+'</span></span>';
+}
 function resultLegendHtml(legend){
  return '<h3>מקרא קווים ותחנות</h3><div class="legend-grid">'+[...legend.values()].map(item=>
-  '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong><div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
+  '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong>'+operatorBrandHtml(item.agency)+'<div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
  ).join("")+'</div>';
 }
 function createResults(readSelection=true){
