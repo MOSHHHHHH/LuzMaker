@@ -89,7 +89,7 @@ input,select{min-height:46px;border-radius:12px}
 
 #sourceNotice.stale-data{border-right:5px solid #c87b00;background:#fff1d6;color:#683e00;font-weight:700}
 
-.operator-brand{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.85rem;color:#445b71;vertical-align:middle}
+.operator-chip .operator-brand{color:inherit}.operator-brand{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.85rem;color:#445b71;vertical-align:middle}
 .operator-logo{display:inline-block;width:34px;height:28px;object-fit:contain;flex:none;vertical-align:middle}
 .legend-entry .operator-brand{display:flex;margin:4px 0}
 @media print{.operator-logo{width:28px;height:23px;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
@@ -329,7 +329,7 @@ function renderRouteCards(routes){
  $("routeCards").innerHTML=routes.map(r=>{
   const [from,to]=routeParts(r),agency=r.agency||"מפעיל לא ידוע";
   return '<button type="button" class="route-card" data-route="'+r.i+'" style="--operator:'+agencyHue(agency)+'" aria-pressed="false">'+
-  '<span class="route-card-top"><span class="operator-chip">🚌 '+safe(agency)+'</span><span class="muted small">'+(r.stops?.length||0)+' תחנות</span></span>'+
+  '<span class="route-card-top"><span class="operator-chip">'+operatorBrandHtml(agency)+'</span><span class="muted small">'+(r.stops?.length||0)+' תחנות</span></span>'+
   '<strong class="route-title">'+safe(from)+(to?' <span aria-hidden="true">←</span> '+safe(to):"")+'</strong>'+
   '<span class="muted small">בחר מסלול</span></button>';
  }).join("");
