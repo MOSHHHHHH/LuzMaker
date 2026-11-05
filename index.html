@@ -93,6 +93,21 @@ input,select{min-height:46px;border-radius:12px}
 .operator-logo{display:inline-block;width:34px;height:28px;object-fit:contain;flex:none;vertical-align:middle}
 .legend-entry .operator-brand{display:flex;margin:4px 0}
 @media print{.operator-logo{width:28px;height:23px;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+/* Route colors are secondary cues: dark text, distinct border, and full number
+   remain readable when paper/PDF background graphics are suppressed. */
+.color-line{color:var(--line-ink,#153e73);background:var(--line-tint,#e7f0ff);
+ border:1px solid var(--line-ink,#153e73);border-right:5px solid var(--line-ink,#153e73);
+ border-radius:7px;padding:3px 9px;font-weight:800;line-height:1.5;
+ -webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{
+ .color-line,.legend-entry .color-line,.result .color-line{
+  color:var(--line-ink,#153e73)!important;
+  background-color:var(--line-tint,#e7f0ff)!important;
+  border-color:var(--line-ink,#153e73)!important;
+  -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+ }
+}
 </style>
 </head>
 <body>
@@ -543,6 +558,40 @@ function duplicateSuffix(index){
  while(number>0){number--;result=letters[number%letters.length]+result;number=Math.floor(number/letters.length)}
  return result;
 }
+// Accessible pairs: very dark foreground on light tint; a stable palette
+// avoids dependence on row order. Color is supplementary to the printed label.
+const lineColors=[
+ ["#153e73","#e7f0ff"],["#116247","#e2f5ed"],["#79420c","#fff0dc"],
+ ["#653b89","#f1e7fc"],["#8b3045","#fceaf0"],["#135c6e","#e4f6fa"],
+ ["#574a0c","#f8f3d8"],["#394b81","#e8edfd"],["#6d3c31","#f9eae5"],
+ ["#305c24","#e8f5e3"],["#723d68","#f7eaf3"],["#3c5266","#ebf2f7"]
+];
+function lineColorHash(key){
+ let hash=2166136261;
+ for(const ch of String(key)){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619)}
+ return hash>>>0;
+}
+function lineColorStyles(colors){
+ const pair=colors||lineColors[0];
+ return '--line-ink:'+pair[0]+';--line-tint:'+pair[1];
+}
+function colorizeLineLegend(legend){
+ const identities=[...legend.keys()].sort(),assigned=new Set();
+ for(const identity of identities){
+  const item=legend.get(identity),start=lineColorHash(identity)%lineColors.length;
+  let slot=start;
+  for(let i=0;i<lineColors.length;i++){
+   const candidate=(start+i)%lineColors.length;
+   if(!assigned.has(candidate)){slot=candidate;break}
+  }
+  assigned.add(slot);
+  item.colors=lineColors[slot];
+ }
+ return legend;
+}
+function lineBadge(label,colors){
+ return '<strong class="line-number color-line" style="'+lineColorStyles(colors)+'">'+safe(label)+'</strong>';
+}
 function makeLineLegend(lines){
  const counts=new Map(),legend=new Map();
  for(const line of lines){
@@ -552,7 +601,7 @@ function makeLineLegend(lines){
   const currentRoute=cache.get(line.number)?.routes.find(route=>route.id===line.routeId);
   legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,agency:currentRoute?.agency||line.agency||"",agencyId:currentRoute?.agencyId||line.agencyId||"",number:key,routeId:line.routeId,stopId:line.stopId});
  }
- return legend;
+ return colorizeLineLegend(legend);
 }
 function legendIdentity(number,routeId,stopId){
  return String(number)+"\u001f"+routeId+"\u001f"+stopId;
@@ -573,7 +622,7 @@ function operatorBrandHtml(agency,agencyId){
 }
 function resultLegendHtml(legend){
  return '<h3>מקרא קווים ותחנות</h3><div class="legend-grid">'+[...legend.values()].map(item=>
-  '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong>'+operatorBrandHtml(item.agency,item.agencyId)+'<div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
+  '<div class="legend-entry">'+lineBadge(item.label,item.colors)+'<div><strong>'+safe(item.route)+'</strong>'+operatorBrandHtml(item.agency,item.agencyId)+'<div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
  ).join("")+'</div>';
 }
 function createResults(readSelection=true){
@@ -587,7 +636,7 @@ function createResults(readSelection=true){
  $("resultLegend").innerHTML=resultLegendHtml(legend);
  $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
  $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates,timetableDates(generated)))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
- (a.rows.length?a.rows.map(r=>'<tr><td><strong class="line-number">'+safe(labeledLine(r,legend))+'</strong></td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
+ (a.rows.length?a.rows.map(r=>'<tr><td>'+lineBadge(labeledLine(r,legend),legend.get(legendIdentity(r.line,r.routeId,r.stopId))?.colors)+'</td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
  '</tbody></table></section>').join("");
  $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
  generated.map((a,i)=>'<span class="day-download"><span class="small">'+safe(a.alias)+'</span><button data-csv="'+i+'">CSV</button><button data-print="'+i+'">PDF</button></span>').join("");
