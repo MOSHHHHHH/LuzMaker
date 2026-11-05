@@ -212,22 +212,47 @@ function hebrewMonth(value,date){
  if(!mapped)throw Error("Hebrew calendar month is unsupported: "+english);
  return mapped;
 }
-function hebrewDate(iso){
+function hebrewDateParts(iso){
  const date=isoCivilDate(iso);
  const parts=hebrewDateFormatter.formatToParts(date);
  const get=kind=>parts.find(part=>part.type===kind)?.value;
  const day=get("day"),month=get("month"),year=get("year");
  if(!day||!month||!year)throw Error("Hebrew calendar date unavailable");
  const numberOrHebrew=value=>/^\d+$/.test(value)?hebrewNumeral(Number(value)):value;
- return numberOrHebrew(day)+" ב"+hebrewMonth(month,date)+" "+numberOrHebrew(year);
+ return {day:numberOrHebrew(day),month:hebrewMonth(month,date),year:numberOrHebrew(year),yearKey:String(year)};
 }
-function gregorianDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00").toLocaleDateString("he-IL",{day:"2-digit",month:"2-digit",year:"numeric",timeZone:"UTC"})}
-function dateDisplay(iso,style=calendarView){
- const heb=hebrewDate(iso),greg=gregorianDate(iso);
+function hebrewYear(iso){return hebrewDateParts(iso).yearKey}
+function hebrewDate(iso,showYear=true){
+ const value=hebrewDateParts(iso);
+ return value.day+" ב"+value.month+(showYear?" "+value.year:"");
+}
+function gregorianYear(iso){return String(iso).slice(0,4)}
+function gregorianDate(iso,showYear=true){
+ return new Date(String(iso).slice(0,10)+"T12:00:00").toLocaleDateString("he-IL",{
+  day:"2-digit",month:"2-digit",...(showYear?{year:"numeric"}:{}),timeZone:"UTC"
+ });
+}
+// Each calendar is checked independently, against every date displayed in
+// the entire list of timetables, not separately per timetable.
+function yearVisibility(dates){
+ const all=[...new Set(dates)];
+ if(!all.length)return {hebrew:true,gregorian:true};
+ return {
+  hebrew:new Set(all.map(hebrewYear)).size>1,
+  gregorian:new Set(all.map(gregorianYear)).size>1
+ };
+}
+function dateDisplay(iso,style=calendarView,visibility=null){
+ const show=visibility||{hebrew:true,gregorian:true};
+ const heb=hebrewDate(iso,show.hebrew),greg=gregorianDate(iso,show.gregorian);
  return style==="hebrew"?heb:style==="gregorian"?greg:heb+" ("+greg+")";
 }
 function dateLabel(d){return dateDisplay(dateISO(d))}
-function dateListDisplay(dates){return dates.map(iso=>dateDisplay(iso)).join(" · ")}
+function dateListDisplay(dates,allDates=null){
+ const visibility=yearVisibility(allDates||dates);
+ return dates.map(iso=>dateDisplay(iso,calendarView,visibility)).join(" · ");
+}
+function timetableDates(timetables){return timetables.flatMap(item=>item.dates)}
 function updateCalendarView(value){
  if(!calendars.includes(value))return;
  calendarView=value;
@@ -491,11 +516,11 @@ function suggestedAlias(dates){
  if(w.every(d=>d<=4))return "אמצע שבוע";
  if(w.every(d=>d===5))return "יום שישי";
  if(w.every(d=>d===6))return "מוצ״ש";
- return dates.length===1?dateDisplay(dates[0]):"לוח מיוחד";
+ return dates.length===1?dateDisplay(dates[0],calendarView,yearVisibility(timetableDates(analyzed))):"לוח מיוחד";
 }
 function renderAnalysis(){
  $("smartResults").classList.remove("hidden");
- $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+safe(dateListDisplay(a.dates))+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
+ $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+safe(dateListDisplay(a.dates,timetableDates(analyzed)))+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
  $("generate").classList.remove("hidden")
 }
 // The first entry keeps its real line number. Repeated numbers use ב, ג, ד...
@@ -537,7 +562,7 @@ function createResults(readSelection=true){
  $("printTitle").textContent="לו״ז מייקר — "+selectedGroup.name;
  $("resultLegend").innerHTML=resultLegendHtml(legend);
  $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
- $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
+ $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates,timetableDates(generated)))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
  (a.rows.length?a.rows.map(r=>'<tr><td><strong class="line-number">'+safe(labeledLine(r,legend))+'</strong></td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
  '</tbody></table></section>').join("");
  $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
