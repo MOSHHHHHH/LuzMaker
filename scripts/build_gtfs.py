@@ -81,7 +81,10 @@ def build(zip_path, out, start):
     with zipfile.ZipFile(zip_path) as zf:
         names = set(zf.namelist())
         print("ZIP entries:", len(names), flush=True)
-        agencies = {r.get("agency_id", ""): r.get("agency_name", "") for r in rows(zf, "agency.txt")}
+        agencies = {r.get("agency_id", ""): {
+            "name": r.get("agency_name", "").strip(),
+            "url": r.get("agency_url", "").strip()
+        } for r in rows(zf, "agency.txt")}
         routes = {}
         by_line = defaultdict(set)
         for r in rows(zf, "routes.txt"):
@@ -91,7 +94,7 @@ def build(zip_path, out, start):
             number = r.get("route_short_name", "").strip()
             if not number:
                 continue
-            routes[rid] = (number, r.get("route_long_name", "").strip(), agencies.get(r.get("agency_id", ""), ""), r.get("agency_id", ""), r.get("route_desc", ""))
+            routes[rid] = (number, r.get("route_long_name", "").strip(), agencies.get(r.get("agency_id", ""), {}).get("name", ""), r.get("agency_id", ""), r.get("route_desc", ""))
             by_line[number].add(rid)
         if not routes:
             raise ValueError("No bus routes found")
@@ -144,7 +147,7 @@ def build(zip_path, out, start):
                 if direction:
                     title += " · כיוון " + direction
                 variants[key] = {
-                    "id": identifier, "name": title, "agency": agency,
+                    "id": identifier, "name": title, "agency": agency, "agencyId": agency_id,
                     "alternative": alternative, "route_desc": route_desc,
                     "line": number,
                     "stops": {}, "t": defaultdict(lambda: defaultdict(list))
@@ -204,7 +207,7 @@ def build(zip_path, out, start):
                 for sid in ordered
             }
             line_variants[variant["line"]].append({
-                "id": variant["id"], "name": variant["name"], "agency": variant["agency"],
+                "id": variant["id"], "name": variant["name"], "agency": variant["agency"], "agencyId": variant["agencyId"],
                 "alternative": variant["alternative"], "route_desc": variant["route_desc"],
                 "stops": stops, "t": trip_sets
             })
@@ -218,6 +221,14 @@ def build(zip_path, out, start):
             path.write_text(payload, encoding="utf-8")
             total_bytes += path.stat().st_size
             actual_lines.append([line, filename])
+        # The official GTFS agency_url is the sole image discovery source.
+        # Publish only agencies that actually appear in timetable variants.
+        used_agencies = {v["agencyId"] for v in variants.values() if v["t"] and v["agencyId"]}
+        (output_tmp / "data" / "agencies.json").write_text(
+            json.dumps({agency_id: agencies[agency_id] for agency_id in sorted(used_agencies)
+                        if agency_id in agencies}, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8"
+        )
         metadata = {
             "format": 2, "source": URL, "start": start.isoformat(),
             "days": DAYS, "dayStarts": "03:00",
