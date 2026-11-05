@@ -83,12 +83,12 @@ async function main(){
  assert.equal(await run('hebrewDate("2026-11-05")'),"כ״ה בחשוון תשפ״ז","Hebrew calendar date for standard year");
  assert.equal(await run('hebrewDate("2024-03-24")'),"י״ד באדר ב׳ תשפ״ד","Leap-year Adar II");
  assert.equal(await run('hebrewDate("2024-02-24")'),"ט״ו באדר א׳ תשפ״ד","Leap-year Adar I");
- assert.equal(await run('gregorianDate("2024-03-24")'),"24.3.2024","Civil date preserved");
+ assert.equal(await run('gregorianDate("2024-03-24")'),"24.03.2024","Civil date preserved");
  assert((await run('dateDisplay("2024-03-24")')).includes("2024"),"Dual date view by default");
  await run('updateCalendarView("hebrew")');
  assert.equal(await run('dateDisplay("2024-03-24")'),"י״ד באדר ב׳ תשפ״ד","Hebrew-only calendar mode");
  await run('updateCalendarView("gregorian")');
- assert.equal(await run('dateDisplay("2024-03-24")'),"24.3.2024","Gregorian-only calendar mode");
+ assert.equal(await run('dateDisplay("2024-03-24")'),"24.03.2024","Gregorian-only calendar mode");
  await run('updateCalendarView("both")');
  assert(!html.includes('<th style="width:70%">מסלול</th>'),"Timetable no longer repeats route name column");
  // Ensure route timings use the date mask and are not mixed with adjacent numbers.
