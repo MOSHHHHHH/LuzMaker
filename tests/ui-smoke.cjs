@@ -76,6 +76,16 @@ async function main(){
  assert.deepEqual([...legend.values()].map(x=>x.label),["134","134 (ב)","134 (ג)","134א"],"Labels should distinguish duplicates without confusing actual lettered lines");
  assert.equal(await run('labeledLine({line:"134",routeId:"r2",stopId:"s2"},makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"},{number:"134",routeId:"r2",stopId:"s2"}]))'),"134 (ב)");
  assert(html.includes('id="resultLegend"'),"Printable legend exists");
+ assert.equal(await run('operatorLogo("אגד")'),"egged","Egged logo mapping");
+ assert.equal(await run('operatorLogo("קווים")'),"kavim","Kavim logo mapping");
+ assert.equal(await run('operatorLogo("מטרופולין")'),"metropoline","Metropoline logo mapping");
+ assert.equal(await run('operatorLogo("סופרבוס")'),"superbus","Superbus logo mapping");
+ assert.equal(await run('operatorLogo("נתיב אקספרס")'),"nateev-express","Nateev Express logo mapping");
+ assert.equal(await run('operatorLogo("מפעיל לא מוכר")'),"","Unknown operator has no guessed logo");
+ assert((await run('operatorBrandHtml("אגד")')).includes('src="./logos/egged.svg"'),"Local Egged logo used in output");
+ assert(!(await run('operatorBrandHtml("חברה אחרת")')).includes("<img"),"Unknown logo must fall back to text");
+ assert((await run('resultLegendHtml(makeLineLegend([{number:"480",routeId:"r",stopId:"s",routeName:"ירושלים - תל אביב",stopName:"מרכזית",agency:"אגד"}]))')).includes('logos/egged.svg'),"Printable legend contains operator logo");
+
  assert(html.includes('id="homeResults"'),"Home button exists");
  assert(html.includes('id="downloadActions"'),"Downloads are above the result tables");
  assert(html.indexOf('id="downloadActions"')<html.indexOf('id="resultTables"'),"Downloads appear first");
