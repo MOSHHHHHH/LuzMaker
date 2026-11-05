@@ -75,6 +75,16 @@ async function main(){
  const legend=await run('makeLineLegend([{number:"134",routeId:"r1",stopId:"s1",routeName:"מסלול 1",stopName:"תחנה 1"},{number:"134",routeId:"r2",stopId:"s2",routeName:"מסלול 2",stopName:"תחנה 2"},{number:"134",routeId:"r3",stopId:"s3",routeName:"מסלול 3",stopName:"תחנה 3"},{number:"134א",routeId:"ra",stopId:"sa",routeName:"מסלול אות",stopName:"תחנה אות"}])');
  assert.deepEqual([...legend.values()].map(x=>x.label),["134","134 (ב)","134 (ג)","134א"],"Labels should distinguish duplicates without confusing actual lettered lines");
  assert.equal(await run('labeledLine({line:"134",routeId:"r2",stopId:"s2"},makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"},{number:"134",routeId:"r2",stopId:"s2"}]))'),"134 (ב)");
+ // Editing/selection remains uncolored; color assignment happens at timetable creation.
+ assert.equal(await run('makeLineLegend([{number:"480",routeId:"r1",stopId:"s1"}]).values().next().value.colors'),undefined,"No colors allocated during group configuration");
+ const colorLegend=await run('colorizeLineLegend(makeLineLegend([{number:"480",routeId:"r1",stopId:"s1"},{number:"480",routeId:"r2",stopId:"s2"},{number:"402",routeId:"r3",stopId:"s3"}]))');
+ const coloredItems=[...colorLegend.values()];
+ assert(coloredItems.every(item=>Array.isArray(item.colors)),"Final timetable legend has colors");
+ assert.notDeepEqual(coloredItems[0].colors,coloredItems[1].colors,"Distinct routes receive distinct colors");
+ assert((await run('lineBadge("480",["#153e73","#e7f0ff"])')).includes('--line-ink:#153e73'),"Route badge uses palette ink");
+ assert(html.includes('print-color-adjust:exact'),"Print attempts to preserve color");
+ assert(html.includes('border-right:5px solid var(--line-ink'),"Colored border survives suppressed background printing");
+
  assert(html.includes('id="resultLegend"'),"Printable legend exists");
  // Manifest is keyed by official GTFS agency ID, never by guessed company name.
  await run('operatorIcons={"agency-100":"./operator-icons/0123456789abcdefabcd.png"}');
