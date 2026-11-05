@@ -56,6 +56,30 @@ input,select{min-height:46px;border-radius:12px}
 .result tr:hover td{background:#f7faff}
 @media(max-width:650px){.header{padding:12px}.logo-icon{width:45px;height:45px}.route-cards{max-height:325px}.panel{padding:16px}.form-grid{grid-template-columns:1fr}.result{padding:6px}}
 @media print{body{background:#fff}.result{border:none;break-inside:avoid}.route-cards{display:none}}
+
+/* Timetable summary and compact, legible print layout */
+.timetable-legend{background:#f6faff;border:1px solid #d5e5fb;border-radius:16px;padding:18px;margin:14px 0}
+.timetable-legend h3{margin:0 0 14px}
+.legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+.legend-entry{display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border:1px solid #e0e9f5;border-radius:12px;overflow-wrap:anywhere}
+.line-number{display:inline-block;white-space:nowrap;direction:rtl;unicode-bidi:isolate;background:#e6f1ff;border-radius:8px;padding:3px 9px;color:#124f9e;font-variant-numeric:tabular-nums}
+.day-download{display:inline-flex;align-items:center;gap:6px;border:1px solid #d6e4f6;background:#f7faff;padding:5px 8px;border-radius:12px}
+.day-download button{padding:7px 11px}
+.result table{max-width:580px}.result th,.result td{width:50%}.result .clock{font-variant-numeric:tabular-nums;font-size:1.06rem;font-weight:700}
+.print-only{display:none}
+@media print{
+ #results{display:block!important}
+ #printTitle.print-only{display:block!important;font-size:17pt;margin:0 0 12px}
+ .timetable-legend{background:#fff;border:1px solid #aaa;break-inside:avoid;padding:10px;margin:10px 0}
+ .legend-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+ .legend-entry{border:1px solid #bbb;padding:6px;font-size:10pt}
+ .line-number{background:#eee;color:#000;border:1px solid #ccc;padding:1px 5px}
+ .result{padding:6px 0;margin:10px 0;break-inside:auto}
+ .result h3{break-after:avoid}
+ .result table{max-width:none}
+ .result tr{break-inside:avoid}
+}
+@media(max-width:600px){.legend-grid{grid-template-columns:1fr}.day-download{width:100%;justify-content:space-between}}
 </style>
 </head>
 <body>
@@ -90,10 +114,12 @@ input,select{min-height:46px;border-radius:12px}
  <div class="actions" style="margin-top:18px"><button id="generate" class="primary hidden">הצג לוחות נבחרים</button></div>
 </section>
 <section class="panel hidden" id="results">
- <div class="row between no-print"><h2>לוחות הזמנים שלך</h2><button id="backResults">חזרה</button></div>
+ <div class="row between no-print"><h2>לוחות הזמנים שלך</h2><div class="actions"><button id="backResults">חזרה לבחירה</button><button id="homeResults" class="primary">⌂ חזרה לדף הבית</button></div></div>
+ <h2 class="print-only hidden" id="printTitle">לו״ז מייקר — לוחות זמנים</h2>
+ <div id="resultLegend" class="timetable-legend" aria-label="מקרא קווים"></div>
  <div class="notice no-print" id="resultSource"></div>
- <div id="resultTables"></div>
  <div class="actions no-print" id="downloadActions"></div>
+ <div id="resultTables"></div>
 </section>
 </main>
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
@@ -381,14 +407,49 @@ function renderAnalysis(){
  $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+a.dates.map(safe).join(" · ")+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
  $("generate").classList.remove("hidden")
 }
+// The first entry keeps its real line number. Repeated numbers use ב, ג, ד...
+// The suffix א is deliberately skipped to avoid confusion with actual route numbers.
+function duplicateSuffix(index){
+ const letters="אבגדהוזחטיכלמנסעפצקרשת";
+ let number=index+1,result="";
+ while(number>0){number--;result=letters[number%letters.length]+result;number=Math.floor(number/letters.length)}
+ return result;
+}
+function makeLineLegend(lines){
+ const counts=new Map(),legend=new Map();
+ for(const line of lines){
+  const key=String(line.number),identity=key+"\u001f"+line.routeId+"\u001f"+line.stopId;
+  if(legend.has(identity))continue;
+  const ordinal=counts.get(key)||0;counts.set(key,ordinal+1);
+  legend.set(identity,{label:key+(ordinal?" ("+duplicateSuffix(ordinal)+")":""),route:line.routeName,stop:line.stopName,number:key,routeId:line.routeId,stopId:line.stopId});
+ }
+ return legend;
+}
+function legendIdentity(number,routeId,stopId){
+ return String(number)+"\u001f"+routeId+"\u001f"+stopId;
+}
+function labeledLine(row,legend){
+ return legend.get(legendIdentity(row.line,row.routeId,row.stopId))?.label||row.line;
+}
+function resultLegendHtml(legend){
+ return '<h3>מקרא קווים ותחנות</h3><div class="legend-grid">'+[...legend.values()].map(item=>
+  '<div class="legend-entry"><strong class="line-number">'+safe(item.label)+'</strong><div><strong>'+safe(item.route)+'</strong><div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
+ ).join("")+'</div>';
+}
 function createResults(){
  selectedTypes=[...document.querySelectorAll("[data-type]:checked")].map(e=>Number(e.dataset.type));
  generated=analyzed.filter(x=>selectedTypes.includes(x.id)).map(x=>({...x,alias:(document.getElementById("alias-"+x.id)?.value||suggestedAlias(x.dates)).trim()}));
  if(!generated.length){alert("בחר לוח אחד לפחות");return}
+ const legend=makeLineLegend(selectedGroup.lines);
+ $("printTitle").textContent="לו״ז מייקר — "+selectedGroup.name;
+ $("resultLegend").innerHTML=resultLegendHtml(legend);
  $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
- $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3 style="margin-top:24px">'+safe(a.alias)+' — '+safe(a.dates.join(" · "))+'</h3><table><thead><tr><th style="width:12%">קו</th><th style="width:70%">מסלול</th><th style="width:18%">שעה</th></tr></thead><tbody>'+ (a.rows.length?a.rows.map(r=>'<tr><td>'+safe(r.line)+'</td><td>'+safe(r.route)+'</td><td>'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="3">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+'</tbody></table><div class="actions no-print" style="margin:14px 0"><button data-csv="'+i+'">הורדת CSV</button><button data-print="'+i+'">הדפסה / PDF ללוח זה</button></div></section>').join("");
- $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / שמירה כ־PDF</button><button id="allCsv">הורדת CSV לכל הימים</button>';
- show("results")
+ $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(a.dates.join(" · "))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
+ (a.rows.length?a.rows.map(r=>'<tr><td><strong class="line-number">'+safe(labeledLine(r,legend))+'</strong></td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
+ '</tbody></table></section>').join("");
+ $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
+ generated.map((a,i)=>'<span class="day-download"><span class="small">'+safe(a.alias)+'</span><button data-csv="'+i+'">CSV</button><button data-print="'+i+'">PDF</button></span>').join("");
+ show("results");
 }
 function printSelected(index){
  document.querySelectorAll("#resultTables .result").forEach((node,i)=>node.classList.toggle("print-exclude",index!==null&&i!==index));
@@ -396,8 +457,9 @@ function printSelected(index){
 }
 window.addEventListener("afterprint",()=>document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude")));
 function downloadCSV(list,filename){
- const cells=[["תאריך","קו","מסלול","שעה"]];
- for(const a of list)for(const row of a.rows)cells.push([a.dates.join("; "),row.line,row.route,timeString(row.min)]);
+ const cells=[["תאריך","קו","מסלול","תחנה","שעה"]];
+ const legend=makeLineLegend(selectedGroup.lines);
+ for(const a of list)for(const row of a.rows)cells.push([a.dates.join("; "),labeledLine(row,legend),row.route,row.stop,timeString(row.min)]);
  const csv="\uFEFF"+cells.map(row=>row.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=filename+".csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
@@ -414,8 +476,9 @@ $("groupCards").onclick=e=>{const b=e.target.closest("button");if(!b)return;cons
 $("backGen").onclick=()=>{analysisTicket++;show("home")};
 $("generate").onclick=createResults;
 $("backResults").onclick=()=>show("generator");
-$("resultTables").onclick=e=>{const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");if(pdf)printSelected(Number(pdf.dataset.print))};
-$("downloadActions").onclick=e=>{if(e.target.id==="printPdf")printSelected(null);if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים")};
+$("homeResults").onclick=()=>show("home");
+$("resultTables").onclick=()=>{};
+$("downloadActions").onclick=e=>{const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");else if(pdf)printSelected(Number(pdf.dataset.print));else if(e.target.id==="printPdf")printSelected(null);else if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים")};
 $("helpBtn").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
 init();
 </script>
