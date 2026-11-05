@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Cache favicons from GTFS agency_url only. No external logo databases.
+"""Cache operator-site favicons for LuzMaker.
 
-Best effort: missing/invalid icons are omitted. No JavaScript, SVG, HTML or
-remote image URL is ever embedded into the public site. All icons are local.
+Source priority: official GTFS agency_url website; Google s2/favicon as a
+best-effort proxy for the SAME website when direct retrieval fails.
+Only validated raster images are published. Failures do not block schedules.
 """
 import concurrent.futures
 import hashlib
@@ -12,42 +13,36 @@ import json
 from pathlib import Path
 import re
 import socket
+import struct
 import urllib.error
 import urllib.parse
 import urllib.request
 
 MAX_ICON = 256_000
-MAX_HTML = 256_000
-USER_AGENT = "Mozilla/5.0 (compatible; LuzMaker-favicon-cache/1.0)"
+MAX_HTML = 1024 * 1024
+USER_AGENT = "Mozilla/5.0 (compatible; LuzMaker-favicon-cache/2.0)"
 HEADERS = {"User-Agent": USER_AGENT, "Accept": "image/png,image/x-icon,image/vnd.microsoft.icon,image/webp,image/jpeg,text/html;q=0.7"}
-FORMATS = {
-    "png": lambda b: b.startswith(b"\x89PNG\r\n\x1a\n"),
-    "ico": lambda b: b[:4] == b"\x00\x00\x01\x00",
-    "webp": lambda b: b.startswith(b"RIFF") and b[8:12] == b"WEBP",
-    "jpg": lambda b: b.startswith(b"\xff\xd8\xff"),
-}
+GOOGLE_ICON_ENDPOINT = "https://www.google.com/s2/favicons"
+ALLOWED_IMAGE_TYPES = ("png", "ico", "webp", "jpg")
 
 
 def safe_url(url):
-    """Deny IP literals, non-HTTPS endpoints, ports and private DNS results."""
+    """Reject local destinations, IP literals, credentials and non-TLS URLs."""
     try:
         parsed = urllib.parse.urlsplit(url)
         host = parsed.hostname
         if (parsed.scheme != "https" or not host or parsed.username or parsed.password
                 or parsed.port not in (None, 443) or len(url) > 2048):
             return False
-        if not re.fullmatch(r"[a-z0-9.-]+", host, re.I) or "." not in host:
+        if not re.fullmatch(r"[a-z0-9.-]+", host, re.I) or "." not in host or ".." in host:
             return False
         try:
             ipaddress.ip_address(host)
             return False
         except ValueError:
             pass
-        for entry in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM):
-            address = ipaddress.ip_address(entry[4][0])
-            if not address.is_global:
-                return False
-        return True
+        return all(ipaddress.ip_address(entry[4][0]).is_global for entry in
+                   socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM))
     except (ValueError, socket.gaierror, OSError):
         return False
 
@@ -62,14 +57,16 @@ class SafeRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(SafeRedirect())
 
 
-def get(url, limit):
+def get(url, limit, partial=False):
     if not safe_url(url):
         raise ValueError("Unsafe operator site URL")
     req = urllib.request.Request(url, headers=HEADERS)
-    with OPENER.open(req, timeout=8) as response:
+    with OPENER.open(req, timeout=9) as response:
         data = response.read(limit + 1)
         if len(data) > limit:
-            raise ValueError("Oversized response")
+            if not partial:
+                raise ValueError("Oversized response")
+            data = data[:limit]  # The icon links normally appear inside <head>.
         return data, response.geturl()
 
 
@@ -84,61 +81,120 @@ class FaviconLinks(HTMLParser):
         values = dict(attrs)
         rel = str(values.get("rel", "")).lower().split()
         href = values.get("href")
-        if href and ("icon" in rel or "shortcut" in rel and "icon" in rel):
+        if href and ("icon" in rel or "apple-touch-icon" in rel or "apple-touch-icon-precomposed" in rel):
             self.links.append((str(href), str(values.get("sizes", "")), str(values.get("type", ""))))
 
 
 def image_extension(data):
-    return next((ext for ext, valid in FORMATS.items() if valid(data)), None)
+    """Content-based format check. Unsafe SVG and arbitrary HTML are not served."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
+        return "png"
+    if data.startswith(b"\x00\x00\x01\x00") and len(data) >= 6:
+        return "ico"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "webp"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    return None
 
 
-def favicon_for(operator):
-    key, agency = operator
-    url = agency.get("url", "").strip()
-    # Older GTFS feeds sometimes publish an http:// website URL; try its
-    # HTTPS equivalent instead. Never download insecure HTTP content.
-    if url.lower().startswith("http://"):
-        url = "https://" + url[7:]
-    if not safe_url(url):
-        return key, None, None
+def png_dimensions(data):
+    if not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data) < 24:
+        return None
+    return struct.unpack(">II", data[16:24])
+
+
+def official_site_url(raw):
+    raw = str(raw or "").strip()
+    if raw.lower().startswith("http://"):
+        raw = "https://" + raw[7:]
+    return raw
+
+
+def direct_favicon(site):
+    """Try declared icons, including touch icons; then common root filenames."""
+    candidates = []
+    reason = ""
     try:
-        html, actual = get(url, MAX_HTML)
+        html, actual = get(site, MAX_HTML, partial=True)
         parser = FaviconLinks()
         parser.feed(html.decode("utf-8", errors="replace"))
-        candidates = []
         for href, sizes, mime in parser.links:
             candidate = urllib.parse.urljoin(actual, href)
             if not safe_url(candidate):
                 continue
-            # Prefer explicit larger PNG / ICO entries, not apple-touch-only icons.
-            score = 0
             sizes_found = re.findall(r"\d{1,4}x\d{1,4}", sizes.lower())
-            if sizes_found:
-                score = max(min(int(size.split("x")[0]), 512) for size in sizes_found)
+            score = max((min(int(s.split("x")[0]), 512) for s in sizes_found), default=0)
             if "png" in mime or ".png" in href.lower():
                 score += 20
+            if "svg" in mime or ".svg" in href.lower():
+                score -= 100  # Do not serve untrusted SVG to users.
             candidates.append((score, candidate))
-        candidates.sort(reverse=True)
-        for candidate in [u for _, u in candidates[:6]] + [urllib.parse.urljoin(actual, "/favicon.ico")]:
-            try:
-                raw, _ = get(candidate, MAX_ICON)
-                ext = image_extension(raw)
-                if ext:
-                    return key, raw, ext
-            except (ValueError, OSError, urllib.error.URLError):
-                continue
-    except (ValueError, OSError, urllib.error.URLError):
-        # Sites that disallow homepage access may still expose /favicon.ico.
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        base = actual
+    except Exception as exc:
+        reason = "site: " + type(exc).__name__
+        base = site
+    base_parts = urllib.parse.urlsplit(base)
+    origin = urllib.parse.urlunsplit(("https", base_parts.netloc, "/", "", ""))
+    candidates = [url for _, url in candidates[:8]] + [
+        urllib.parse.urljoin(origin, path) for path in
+        ("favicon.ico", "favicon.png", "favicon-32x32.png", "favicon-192x192.png",
+         "apple-touch-icon.png", "apple-touch-icon-precomposed.png")
+    ]
+    tried = set()
+    for candidate in candidates:
+        if candidate in tried:
+            continue
+        tried.add(candidate)
         try:
-            parsed = urllib.parse.urlsplit(url)
-            ico_url = urllib.parse.urlunsplit(("https", parsed.netloc, "/favicon.ico", "", ""))
-            raw, _ = get(ico_url, MAX_ICON)
+            raw, _ = get(candidate, MAX_ICON)
             ext = image_extension(raw)
             if ext:
-                return key, raw, ext
-        except (ValueError, OSError, urllib.error.URLError):
-            pass
-    return key, None, None
+                return raw, ext, "direct"
+        except Exception as exc:
+            reason = type(exc).__name__
+    return None, None, reason or "no supported icon"
+
+
+def google_favicon(site):
+    """Google's undocumented s2 proxy is optional and never used in the UI."""
+    hostname = urllib.parse.urlsplit(site).hostname
+    if not hostname:
+        return None, None, "missing hostname"
+    query = urllib.parse.urlencode({"domain": hostname, "sz": "128"})
+    url = GOOGLE_ICON_ENDPOINT + "?" + query
+    try:
+        data, final_url = get(url, MAX_ICON)
+        host = urllib.parse.urlsplit(final_url).hostname or ""
+        # The image must come from Google's own service/CDN.
+        if host != "www.google.com" and not re.fullmatch(r"t[0-9]\.gstatic\.com", host):
+            return None, None, "unexpected Google redirect"
+        if image_extension(data) != "png":
+            return None, None, "Google returned non-PNG"
+        dimensions = png_dimensions(data)
+        if not dimensions or min(dimensions) < 32:
+            return None, None, "Google fallback/low-resolution icon"
+        return data, "png", "google"
+    except urllib.error.HTTPError as exc:
+        return None, None, f"Google HTTP {exc.code}"
+    except Exception as exc:
+        return None, None, "Google: " + type(exc).__name__
+
+
+def favicon_for(operator):
+    key, agency = operator
+    site = official_site_url(agency.get("url"))
+    name = str(agency.get("name") or key).strip()
+    if not safe_url(site):
+        return key, name, None, None, "missing/unsafe GTFS website"
+    data, ext, result = direct_favicon(site)
+    if data:
+        return key, name, data, ext, result
+    fallback, fallback_ext, fallback_result = google_favicon(site)
+    if fallback:
+        return key, name, fallback, fallback_ext, fallback_result
+    return key, name, None, None, result + "; " + fallback_result
 
 
 def build_icons(root):
@@ -146,19 +202,30 @@ def build_icons(root):
     agencies = json.loads((data / "agencies.json").read_text(encoding="utf-8"))
     icons = root / "operator-icons"
     icons.mkdir(parents=True, exist_ok=True)
-    mapping = {}
+    mapping, report = {}, []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         futures = [pool.submit(favicon_for, item) for item in agencies.items()]
         for future in concurrent.futures.as_completed(futures):
-            key, payload, ext = future.result()
-            if not payload:
-                continue
-            filename = hashlib.sha256(key.encode("utf-8")).hexdigest()[:20] + "." + ext
-            (icons / filename).write_bytes(payload)
-            mapping[key] = "./operator-icons/" + filename
+            key, name, payload, ext, source = future.result()
+            record = {"agency_id": key, "name": name, "website": agencies[key].get("url", ""),
+                      "source": source, "status": "found" if payload else "missing"}
+            if payload:
+                filename = hashlib.sha256(key.encode("utf-8")).hexdigest()[:20] + "." + ext
+                (icons / filename).write_bytes(payload)
+                mapping[key] = "./operator-icons/" + filename
+            report.append(record)
+    report.sort(key=lambda row: row["agency_id"])
     (data / "operator-icons.json").write_text(
         json.dumps(mapping, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Favicons downloaded: {len(mapping)}/{len(agencies)} operators", flush=True)
+    (data / "operator-icons-report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    counts = {"direct": 0, "google": 0, "missing": 0}
+    for row in report:
+        counts[row["source"] if row["status"] == "found" else "missing"] += 1
+        print("Favicon:", row["agency_id"], row["name"], row["status"], row["source"], flush=True)
+    print(f"Favicons downloaded: {len(mapping)}/{len(agencies)} operators "
+          f"(direct={counts['direct']}, google={counts['google']}, missing={counts['missing']})",
+          flush=True)
 
 
 if __name__ == "__main__":
