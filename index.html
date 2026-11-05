@@ -218,7 +218,7 @@ function hebrewDate(iso){
  const get=kind=>parts.find(part=>part.type===kind)?.value;
  const day=get("day"),month=get("month"),year=get("year");
  if(!day||!month||!year)throw Error("Hebrew calendar date unavailable");
- const numberOrHebrew=value=>/^\\d+$/.test(value)?hebrewNumeral(Number(value)):value;
+ const numberOrHebrew=value=>/^\d+$/.test(value)?hebrewNumeral(Number(value)):value;
  return numberOrHebrew(day)+" ב"+hebrewMonth(month,date)+" "+numberOrHebrew(year);
 }
 function gregorianDate(iso){return new Date(String(iso).slice(0,10)+"T12:00:00").toLocaleDateString("he-IL",{day:"2-digit",month:"2-digit",year:"numeric",timeZone:"UTC"})}
