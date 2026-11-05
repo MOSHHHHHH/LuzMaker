@@ -81,6 +81,12 @@ async function main(){
  assert(html.indexOf('id="downloadActions"')<html.indexOf('id="resultTables"'),"Downloads appear first");
  assert(html.includes('["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]'),"CSV exports both calendar dates and stop name");
  assert.equal(await run('hebrewDate("2026-11-05")'),"כ״ה בחשוון תשפ״ז","Hebrew calendar date for standard year");
+ assert.equal(await run('hebrewDate("2025-12-08")'),"י״ח בכסלו תשפ״ו","Date should use Hebrew letters, not digits");
+ assert.equal(await run('hebrewNumeral(15)'),"ט״ו","Special Hebrew numeral 15");
+ assert.equal(await run('hebrewNumeral(16)'),"ט״ז","Special Hebrew numeral 16");
+ assert.equal(await run('hebrewNumeral(5786)'),"תשפ״ו","Year written without thousands");
+ assert.equal(await run('hebrewMonth("03",new Date("2025-12-08T12:00:00Z"))'),"כסלו","Numeric month from ICU must resolve to name");
+ assert(!/\\d/.test(await run('hebrewDate("2026-11-05")')),"Hebrew calendar date must contain no Arabic numerals");
  assert.equal(await run('hebrewDate("2024-03-24")'),"י״ד באדר ב׳ תשפ״ד","Leap-year Adar II");
  assert.equal(await run('hebrewDate("2024-02-24")'),"ט״ו באדר א׳ תשפ״ד","Leap-year Adar I");
  assert.equal(await run('gregorianDate("2024-03-24")'),"24.03.2024","Civil date preserved");
