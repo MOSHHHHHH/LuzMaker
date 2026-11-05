@@ -18,8 +18,8 @@ class FaviconTests(unittest.TestCase):
             self.assertFalse(safe_url(url), url)
 
     def test_image_signature_required(self):
-        self.assertEqual(image_extension(b"\\x89PNG\\r\\n\\x1a\\nanything"), "png")
-        self.assertEqual(image_extension(b"\\x00\\x00\\x01\\x00anything"), "ico")
+        self.assertEqual(image_extension(b"\x89PNG\r\n\x1a\nanything"), "png")
+        self.assertEqual(image_extension(b"\x00\x00\x01\x00anything"), "ico")
         self.assertIsNone(image_extension(b"<svg onload='alert(1)'></svg>"))
         self.assertIsNone(image_extension(b"<html>not an image</html>"))
 
@@ -38,7 +38,7 @@ class FaviconTests(unittest.TestCase):
                             "b": {"url": "", "name": "No image"}}))
             def fake_icon(item):
                 if item[0] == "a":
-                    return "a", b"\\x89PNG\\r\\n\\x1a\\n" + b"abc", "png"
+                    return "a", b"\x89PNG\r\n\x1a\n" + b"abc", "png"
                 return "b", None, None
             with patch("fetch_operator_favicons.favicon_for", side_effect=fake_icon):
                 build_icons(root)
