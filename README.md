@@ -45,5 +45,10 @@ cp index.html _site/index.html
 python -m http.server 8000 -d _site
 ```
 
+## לוגואים של מפעילי תחבורה
+לוגואים זמינים נטענים אוטומטית לפרסום מתוך Wikimedia Commons, ומוצגים לצד שמות מפעילים בממשק וב-PDF. אם לוגו חסר, נשאר שם המפעיל בטקסט. האתר אינו קשור למפעילים ואינו מייצג אותם. הלוגואים עשויים להיות מוגנים כסימני מסחר.
+
+מקורות הקבצים: [אגד](https://commons.wikimedia.org/wiki/File:Egged_logo.svg), [קווים](https://commons.wikimedia.org/wiki/File:KavimLogo.svg) (יוצר: סטודיו DoArt, רישיון CC BY-SA 4.0), [מטרופולין](https://commons.wikimedia.org/wiki/File:Metropoline_buses_logo.svg), [סופרבוס](https://commons.wikimedia.org/wiki/File:Superbus_logo.svg), [נתיב אקספרס](https://commons.wikimedia.org/wiki/File:Nateev_Express_Logo.svg), [בית שמש אקספרס](https://commons.wikimedia.org/wiki/File:בית_שמש_אקספרס.svg). יש לבדוק בכל מקור את תנאי השימוש, במיוחד לצורך פרסום מודפס.
+
 ## מצב הפרויקט
 גרסת בטא. שמירת קבוצות מקומית בלבד; אין סנכרון בין מכשירים. יצירת PDF מתבצעת באמצעות חלון ההדפסה של הדפדפן.
