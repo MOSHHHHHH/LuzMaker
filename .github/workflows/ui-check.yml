@@ -1,0 +1,34 @@
+name: UI and GTFS regression checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/ui-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text(encoding='utf-8')
+          script, = re.findall(r'<script>(.*?)</script>', html, re.S)
+          Path('/tmp/lzm-ui.js').write_text(script, encoding='utf-8')
+          PY
+          node --check /tmp/lzm-ui.js
+      - name: Exercise the actual UI event flow with simulated data
+        run: node tests/ui-smoke.cjs
+      - name: Check GTFS time boundaries and exceptions
+        run: python -m unittest discover -s tests -v
