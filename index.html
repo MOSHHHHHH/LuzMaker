@@ -109,9 +109,9 @@ input,select{min-height:46px;border-radius:12px}
 </section>
 <section class="panel no-print hidden" id="editor">
  <div class="row between"><h2 id="editorTitle">קבוצת קווים חדשה</h2><button id="cancelEdit">חזרה</button></div>
- <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: מהבית לירושלים">
+ <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: קווים לתל אביב (למקומון)">
  <h3 style="margin-top:22px">הוספת קו ותחנה</h3>
- <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 134" list="availableLines"><datalist id="availableLines"></datalist><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">ניתן לחפש גם קווים עם אות, למשל 15א או א15.</div></div><div><label for="routeSelect">מסלול</label><select id="routeSelect" disabled><option>תחילה בחר קו</option></select><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
+ <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 480" list="availableLines"><datalist id="availableLines"></datalist><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">חפשו מספר קו כפי שהוא מופיע בנתונים, כולל אות אם קיימת.</div></div><div><label for="routeSelect">מסלול</label><select id="routeSelect" disabled><option>תחילה בחר קו</option></select><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
  <div class="actions" style="margin-top:15px"><button id="addLine" class="primary">＋ הוסף לקבוצה</button><span class="muted small" id="addStatus" aria-live="polite"></span></div>
  <div id="selectedLines" aria-live="polite"></div><div class="notice hidden" id="editorError" role="alert"></div>
  <div class="actions" style="margin-top:20px"><button class="primary" id="saveGroup">שמור והמשך ליצירת לו״ז ←</button><button id="cancelEdit2">ביטול</button></div>
@@ -136,7 +136,7 @@ input,select{min-height:46px;border-radius:12px}
 </main>
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
 </div>
-<dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. אחר כך בחרו ימים והפיקו לוח זמנים. בבחירה החכמה ימי פעילות בעלי נסיעות זהות מקובצים יחד.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
+<dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. הכלי יזהה אוטומטית לוחות זמנים זהים בימים שונים.</p><p><strong>דוגמאות לשימוש:</strong> הכנת לוח של הקווים לתל אביב לפרסום במקומון, או לוח קווים מהתחנה הקרובה להדפסה ולתלייה על המקרר. המספרים והמסלולים נבחרים מתוך הנתונים העדכניים.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -144,9 +144,9 @@ const storeKey="lzm-maker-beta-groups-v1";
 const calendarKey="lzm-maker-calendar-view-v1";
 const calendars=["both","hebrew","gregorian"];
 let calendarView=(()=>{try{const v=localStorage.getItem(calendarKey);return calendars.includes(v)?v:"both"}catch{return "both"}})();
-let catalog=null, demo=false, editing=null, working=[], selectedGroup=null, chosenDates=[], analyzed=[], selectedTypes=[], generated=[],analysisTicket=0;
+let catalog=null, editing=null, working=[], selectedGroup=null, chosenDates=[], analyzed=[], selectedTypes=[], generated=[],analysisTicket=0;
 let cache=new Map();
-const demoData={version:"DEMO",date:"דוגמה בלבד",lines:{"134":{routes:[{id:"demo-134-a",name:"ירושלים ← גבעת זאב (הדגמה)",stops:[{id:"1552",name:"ירמיהו / ארגמן"},{id:"4116",name:"שמגר / ירמיהו"}],trips:{"1552":{"0":[480,540,600],"1":[480,540,600],"2":[480,540,600],"3":[480,540,600],"4":[480,540,600],"5":[510,570],"6":[1140,1200]},"4116":{"0":[485,545,605],"1":[485,545,605],"2":[485,545,605],"3":[485,545,605],"4":[485,545,605],"5":[515,575],"6":[1145,1205]}}}]}, "402":{routes:[{id:"demo-402-a",name:"ירושלים ← בני ברק (הדגמה)",stops:[{id:"3000",name:"תחנה מרכזית (הדגמה)"}],trips:{"3000":{"0":[420,480],"1":[420,480],"2":[420,480],"3":[420,480],"4":[420,480],"5":[450],"6":[1260]}}}]}}};
+
 let groups=load(),lineTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
 function baseLine(s){return normalizeLine(s).match(/\d+/)?.[0]||null}
