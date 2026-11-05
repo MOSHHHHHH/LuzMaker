@@ -67,8 +67,9 @@ async function main(){
  assert(!html.includes('id="analyze"'),"Explicit analyze button was removed");
  assert(html.includes('href="./favicon.svg"'),"Favicon linked");
  for(let i=0;i<50 && (await run('analyzed.length'))===0;i++)await new Promise(resolve=>setTimeout(resolve,10));
- assert.equal((await run('analyzed.length')),1,"Timetables must be detected automatically after saving");
- assert.equal((await run('analyzed[0].dates.length')),1,"Current mock data has one available day");
+ assert.equal((await run('analyzed.length')),2,"Timetables must be detected automatically and grouped by identical schedules");
+ assert.equal((await run('analyzed[0].dates.length')),1,"One date has the mocked departure");
+ assert.equal((await run('analyzed[1].dates.length')),13,"Identical remaining dates are grouped");
  // Ensure route timings use the date mask and are not mixed with adjacent numbers.
  const day=await run('scheduleFor("2026-11-05")');
  assert.equal(day.length,1);
