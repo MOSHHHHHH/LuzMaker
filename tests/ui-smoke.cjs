@@ -89,6 +89,22 @@ async function main(){
  assert(!/\\d/.test(await run('hebrewDate("2026-11-05")')),"Hebrew calendar date must contain no Arabic numerals");
  assert.equal(await run('hebrewDate("2024-03-24")'),"י״ד באדר ב׳ תשפ״ד","Leap-year Adar II");
  assert.equal(await run('hebrewDate("2024-02-24")'),"ט״ו באדר א׳ תשפ״ד","Leap-year Adar I");
+ // Year omission is calculated across the full displayed collection, separately
+ // for Hebrew and civil years (including schedules split into several groups).
+ const within=await run('yearVisibility(["2025-11-05","2025-11-06"])');
+ assert.equal(within.hebrew,false);
+ assert.equal(within.gregorian,false);
+ assert.equal(await run('dateListDisplay(["2025-12-08","2025-12-09"])'),"י״ח בכסלו (08.12) · י״ט בכסלו (09.12)","Omit both shared years");
+ const hebrewBoundary=await run('yearVisibility(["2025-09-22","2025-09-23"])');
+ assert.equal(hebrewBoundary.hebrew,true,"Hebrew new year boundary must display Hebrew year");
+ assert.equal(hebrewBoundary.gregorian,false,"Same civil year must omit civil year");
+ const civilBoundary=await run('yearVisibility(["2025-12-31","2026-01-01"])');
+ assert.equal(civilBoundary.hebrew,false,"Same Hebrew year must omit Hebrew year");
+ assert.equal(civilBoundary.gregorian,true,"Civil new year boundary must show civil year");
+ assert.equal(await run('yearVisibility(timetableDates([{dates:["2025-12-31"]},{dates:["2026-01-01"]}])).gregorian'),true,"Year check covers all result groups");
+ // Individual date formatting remains unabridged, e.g. for CSV exports.
+ assert.equal(await run('hebrewDate("2025-12-08")'),"י״ח בכסלו תשפ״ו");
+ assert.equal(await run('gregorianDate("2025-12-08")'),"08.12.2025");
  assert.equal(await run('gregorianDate("2024-03-24")'),"24.03.2024","Civil date preserved");
  assert((await run('dateDisplay("2024-03-24")')).includes("2024"),"Dual date view by default");
  await run('updateCalendarView("hebrew")');
