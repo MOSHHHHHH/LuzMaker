@@ -26,6 +26,7 @@ const data={"15.json":routes["15"],"15a.json":routes["15א"],"a15.json":routes["
 const doc={
  getElementById:el,
  querySelectorAll:()=>[],
+ querySelector:()=>({onclick:null}),
  createElement:()=>({click(){},set href(v){},set download(v){}}),
 };
 const localStorage={getItem:()=>null,setItem(){}};
