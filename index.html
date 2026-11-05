@@ -190,7 +190,7 @@ function renderRouteCards(routes){
 }
 function highlightRouteCards(){
  const value=$("routeSelect").value;
- for(const card of $("routeCards").querySelectorAll(".route-card"))card.setAttribute("aria-pressed",String(card.dataset.route)===value?"true":"false");
+ for(const card of ($("routeCards").querySelectorAll?.(".route-card")||[]))card.setAttribute("aria-pressed",String(card.dataset.route)===value?"true":"false");
 }
 function renderGroups(){
  $("groupCards").innerHTML=groups.map(g=>'<article class="card"><h3>'+safe(g.name)+'</h3><p class="muted small">'+g.lines.length+' קווים</p><p>'+g.lines.map(l=>'<span class="pill">'+safe(l.number)+'</span>').join("")+'</p><div class="actions"><button class="primary" data-generate="'+safe(g.id)+'">צור לו״ז</button><button data-edit="'+safe(g.id)+'">עריכה</button><button class="danger" data-delete="'+safe(g.id)+'">מחק</button></div></article>').join("");
