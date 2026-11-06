@@ -134,7 +134,7 @@ input,select{min-height:46px;border-radius:12px}
  #printTitle,#resultLegend{display:none!important}
  #printTables{margin:0!important;padding:0!important}
  .print-sheet{display:block;break-before:page;page-break-before:always;break-inside:avoid;page-break-inside:avoid;margin:0;padding:0}
- .print-sheet:first-child{break-before:auto;page-break-before:auto}
+ .print-sheet:first-child,.print-sheet.print-first-visible{break-before:auto!important;page-break-before:auto!important}
  .print-sheet.print-exclude{display:none!important}
  .print-sheet .print-sheet-legend{display:block;margin:0 0 2.5mm!important;padding:2mm!important;border:1px solid #bcc9d8;border-radius:5px;break-inside:avoid}
  .print-sheet-legend .legend-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm}
@@ -812,10 +812,12 @@ function calculateGeneratedShes(){
   combinedShesForTimetables(generated).map(shesResultHtml).join("");
 }
 function printSelected(index){
- document.querySelectorAll("#printTables .print-sheet").forEach(node=>node.classList.toggle("print-exclude",index!==null&&Number(node.dataset.printResultIndex)!==index));
+ const sheets=[...document.querySelectorAll("#printTables .print-sheet")];
+ sheets.forEach(node=>{node.classList.toggle("print-exclude",index!==null&&Number(node.dataset.printResultIndex)!==index);node.classList.remove("print-first-visible")});
+ sheets.find(node=>index===null||Number(node.dataset.printResultIndex)===index)?.classList.add("print-first-visible");
  window.print();
 }
-window.addEventListener("afterprint",()=>document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude")));
+window.addEventListener("afterprint",()=>{document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude"));document.querySelectorAll(".print-first-visible").forEach(n=>n.classList.remove("print-first-visible"))});
 function csvRows(list,includeTimetableName=false){
  const cells=[["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]];
  if(includeTimetableName)cells[0].unshift("שם הלוח");
