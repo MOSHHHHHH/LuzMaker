@@ -197,7 +197,7 @@ input,select{min-height:46px;border-radius:12px}
  <div class="row between"><h2 id="editorTitle">קבוצת קווים חדשה</h2><button id="cancelEdit">חזרה</button></div>
  <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: קווים לתל אביב (למקומון)">
  <h3 style="margin-top:22px">הוספת קו ותחנה</h3>
- <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 480" list="availableLines"><datalist id="availableLines"></datalist><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">חפשו מספר קו כפי שהוא מופיע בנתונים, כולל אות אם קיימת.</div></div><div><label id="routePickerLabel">מסלול</label><select id="routeSelect" class="sr-only-route" tabindex="-1" aria-hidden="true" disabled><option>תחילה בחר קו</option></select><div id="chosenRoute" class="chosen-route hidden" aria-live="polite"></div><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
+ <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 480"><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">חפשו מספר קו כפי שהוא מופיע בנתונים, כולל אות אם קיימת.</div></div><div><label id="routePickerLabel">מסלול</label><select id="routeSelect" class="sr-only-route" tabindex="-1" aria-hidden="true" disabled><option>תחילה בחר קו</option></select><div id="chosenRoute" class="chosen-route hidden" aria-live="polite"></div><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
  <div class="actions" style="margin-top:15px"><button id="addLine" class="primary">＋ הוסף לקבוצה</button><span class="muted small" id="addStatus" aria-live="polite"></span></div>
  <div id="selectedLines" aria-live="polite"></div><div class="notice hidden" id="editorError" role="alert"></div>
  <div class="actions" style="margin-top:20px"><button class="primary" id="saveGroup">שמור והמשך ליצירת לו״ז ←</button><button id="cancelEdit2">ביטול</button></div>
@@ -237,7 +237,7 @@ let catalog=null, editing=null, working=[], selectedGroup=null, chosenDates=[], 
 let cache=new Map(),operatorIcons={};
 const shesEnabled=/(?:^\?|&)shes=1(?:&|$)/.test(String(window.location?.search||""));
 
-let groups=load(),lineTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
+let groups=load(),lineTicket=0,routeTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
 let closedSuggestionsFor=null;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
 function baseLine(s){return normalizeLine(s).match(/\d+/)?.[0]||null}
@@ -412,7 +412,6 @@ async function init(){
   catalog={lines:[],start:dateISO(dayDate(0)),days:0};
   notify("נתוני משרד התחבורה אינם זמינים כרגע. לא יוצגו נתוני הדגמה או שעות לא מאומתות.");
  }
- $("availableLines").innerHTML=catalog.lines.map(pair=>'<option value="'+safe(pair[0])+'"></option>').join("");
  renderGroups();
  for(const btn of document.querySelectorAll("[data-calendar]"))btn.setAttribute("aria-pressed",String(btn.dataset.calendar===calendarView));
 }
@@ -528,6 +527,7 @@ function applyStopFilter(){
 }
 async function chooseLine(){
  const n=$("lineNumber").value.trim(),token=++lineTicket;
+ routeTicket++; // Cancel stale async stop loads when the line changes.
  resetRoutePicker();
  $("routeSelect").disabled=true;$("stopSelect").disabled=true;$("routeFilter").disabled=true;$("stopFilter").disabled=true;
  $("routeFilter").value="";$("stopFilter").value="";
@@ -547,15 +547,24 @@ async function chooseLine(){
  }catch(e){if(token===lineTicket)editorMessage("שגיאה בטעינת מסלולים: "+e.message)}
 }
 async function chooseRoute(){
- const n=$("lineNumber").value.trim(),i=Number($("routeSelect").value);
- $("stopSelect").disabled=true;$("stopFilter").disabled=true;$("stopFilter").value="";$("stopSelect").innerHTML='<option value="">בחר תחנה</option>';
- if($("routeSelect").value==="")return;
+ const n=$("lineNumber").value.trim(),selected=$("routeSelect").value,token=++routeTicket;
+ $("stopSelect").disabled=true;$("stopFilter").disabled=true;$("stopFilter").value="";
+ if(selected===""){$("stopSelect").innerHTML='<option value="">בחר מסלול</option>';return}
+ // Close the styled picker before any asynchronous fetch or stop processing.
+ collapseRoutePicker();
+ $("stopSelect").innerHTML='<option value="">טוען תחנות…</option>';
  const actual=catalog.lines.find(p=>normalizeLine(p[0])===normalizeLine(n))?.[0];
  if(!actual)return;
- const route=(await getLine(actual)).routes[i];if(!route)return;
- $("stopSelect").innerHTML='<option value="">בחר תחנה ('+route.stops.length+')</option>'+route.stops.map(s=>'<option value="'+safe(s.id)+'">'+safe(s.name)+(s.code?" · "+safe(s.code):"")+'</option>').join("");
- $("stopSelect").disabled=false;$("stopFilter").disabled=false;highlightRouteCards();collapseRoutePicker();
- if(route.stops.length===1)$("stopSelect").value=String(route.stops[0].id);
+ try{
+  const data=cache.get(actual)||await getLine(actual);
+  if(token!==routeTicket||$("routeSelect").value!==selected||$("lineNumber").value.trim()!==n)return;
+  const route=data.routes[Number(selected)];if(!route)throw Error("המסלול שנבחר אינו זמין");
+  $("stopSelect").innerHTML='<option value="">בחר תחנה ('+route.stops.length+')</option>'+route.stops.map(s=>'<option value="'+safe(s.id)+'">'+safe(s.name)+(s.code?" · "+safe(s.code):"")+'</option>').join("");
+  $("stopSelect").disabled=false;$("stopFilter").disabled=false;highlightRouteCards();
+  if(route.stops.length===1)$("stopSelect").value=String(route.stops[0].id);
+ }catch(e){
+  if(token===routeTicket){$("stopSelect").innerHTML='<option value="">שגיאה בטעינת תחנות</option>';editorMessage("שגיאה בטעינת תחנות: "+e.message)}
+ }
 }
 async function addLine(silent=false){
  if(addBusy)return false;
@@ -871,7 +880,7 @@ $("lineNumber").addEventListener("change",()=>{clearTimeout(lookupTimer);if(curr
 $("routeFilter").addEventListener("input",applyRouteFilter);
 $("stopFilter").addEventListener("input",applyStopFilter);
 $("lineSuggestions").onclick=e=>{const b=e.target.closest("[data-suggestion]");if(!b)return;$("lineNumber").value=b.dataset.suggestion;closedSuggestionsFor=$("lineNumber").value.trim();$("lineSuggestions").innerHTML="";$("lineNumber").blur?.();clearTimeout(lookupTimer);void chooseLine()};
-$("routeCards").onclick=e=>{const b=e.target.closest("[data-route]");if(!b)return;$("routeSelect").value=b.dataset.route;collapseRoutePicker();void chooseRoute()};
+$("routeCards").onclick=e=>{const b=e.target.closest("[data-route]");if(!b)return;$("routeSelect").value=b.dataset.route;void chooseRoute()};
 $("chosenRoute").onclick=e=>{if(e.target.closest("#changeRoute"))reopenRoutePicker()};
 $("routeSelect").onchange=chooseRoute;$("addLine").onclick=()=>addLine(false);$("saveGroup").onclick=saveGroup;
 $("selectedLines").onclick=e=>{const b=e.target.closest("[data-remove]");if(b){working.splice(Number(b.dataset.remove),1);renderSelected()}};
