@@ -108,6 +108,18 @@ input,select{min-height:46px;border-radius:12px}
   -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
  }
 }
+
+/* SHES pilot; kept out of the print layouts by default. */
+.shes-panel{margin:16px 0;padding:18px;border:1px solid #a6bdd9;border-radius:16px;background:#f7faff}
+.shes-report{border:1px solid #c5d5e8;background:white;padding:13px;border-radius:12px;margin:12px 0}
+.shes-report h4{margin:2px 0 10px}
+.shes-scores{display:flex;flex-wrap:wrap;gap:12px}
+.shes-scores strong{display:inline-block;padding:7px 11px;background:#e8f1ff;color:#153c70;border:1px solid #95b4dc;border-radius:9px}
+.shes-panel p{margin:8px 0}
+.shes-warning{color:#673d09;background:#fff2d9;border-right:4px solid #a46310;padding:10px;border-radius:7px}
+.shes-panel details{margin-top:12px}
+.shes-panel summary{cursor:pointer;font-weight:700}
+@media print{#shesPanel{display:none!important}}
 </style>
 </head>
 <body>
@@ -153,12 +165,14 @@ input,select{min-height:46px;border-radius:12px}
  <div id="resultLegend" class="timetable-legend" aria-label="מקרא קווים"></div>
  <div class="notice no-print" id="resultSource"></div>
  <div class="actions no-print" id="downloadActions"></div>
+ <div id="shesPanel" class="shes-panel no-print hidden" aria-live="polite"></div>
  <div id="resultTables"></div>
 </section>
 </main>
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
 </div>
 <dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. הכלי יזהה אוטומטית לוחות זמנים זהים בימים שונים.</p><p><strong>דוגמאות לשימוש:</strong> הכנת לוח של הקווים לתל אביב לפרסום במקומון, או לוח קווים מהתחנה הקרובה להדפסה ולתלייה על המקרר. המספרים והמסלולים נבחרים מתוך הנתונים העדכניים.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
+<script src="./shes.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -168,6 +182,7 @@ const calendars=["both","hebrew","gregorian"];
 let calendarView=(()=>{try{const v=localStorage.getItem(calendarKey);return calendars.includes(v)?v:"both"}catch{return "both"}})();
 let catalog=null, editing=null, working=[], selectedGroup=null, chosenDates=[], analyzed=[], selectedTypes=[], generated=[],analysisTicket=0;
 let cache=new Map(),operatorIcons={};
+const shesEnabled=/(?:^\?|&)shes=1(?:&|$)/.test(String(window.location?.search||""));
 
 let groups=load(),lineTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
@@ -640,7 +655,55 @@ function createResults(readSelection=true){
  '</tbody></table></section>').join("");
  $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
  generated.map((a,i)=>'<span class="day-download"><span class="small">'+safe(a.alias)+'</span><button data-csv="'+i+'">CSV</button><button data-print="'+i+'">PDF</button></span>').join("");
+ $("shesPanel").classList.add("hidden");
+ $("shesPanel").innerHTML="";
+ if(shesEnabled)$("downloadActions").innerHTML+='<button id="calculateShes" type="button">מדד פיזור הנסיעות (ניסיוני)</button>';
  show("results");
+}
+// Intentionally analyzes all selected services together: parallel routes may
+// serve nearby but different stops. The user determines service substitutability.
+function combinedShesForTimetables(list){
+ return list.map(a=>{
+  const times=a.rows.map(row=>Number(row.min)).filter(Number.isFinite);
+  return {alias:a.alias,dates:a.dates,lines:new Set(a.rows.map(row=>row.line+" | "+row.route+" | "+row.stop)).size,
+   ...SHES.analyze(times)};
+ });
+}
+function shesClock(minutes){
+ const value=Math.round(minutes);
+ return String(Math.floor(value/60)%24).padStart(2,"0")+":"+String(value%60).padStart(2,"0")+
+  (value>=1440?" (למחרת)":"");
+}
+function shesResultHtml(a){
+ const head='<article class="shes-report"><h4>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates,timetableDates(generated)))+'</h4>';
+ if(a.status!=="ok"){
+  const issue=a.status==="insufficient"?"פחות משלוש יציאות": "כל הנסיעות באותו זמן";
+  return head+'<p>אין מספיק נתונים לחישוב: '+issue+'.</p></article>';
+ }
+ const fixed=x=>Number(x).toFixed(1);
+ let extra='<p>נסיעות: '+a.departures+' · רצף קווים/מסלולים/תחנות: '+a.lines+
+  ' · מרווח ממוצע: '+fixed(a.meanHeadway)+' דק׳ · מרווח מרבי: '+fixed(a.maxHeadway)+
+  ' דק׳ · המתנה במודל הגעה אקראית: '+fixed(a.randomArrivalWait)+' דק׳.</p>';
+ if(a.confidence!=="normal")extra+='<p class="shes-warning">מספר נסיעות קטן — הביטחון בציון נמוך.</p>';
+ if(a.sensitivity?.unstable)extra+='<p class="shes-warning">הציון רגיש להגדרות זיהוי תקופות (טווח SHES-T: '+
+  fixed(a.sensitivity.min)+'–'+fixed(a.sensitivity.max)+'). אין להסיק ממנו דירוג חד־משמעי.</p>';
+ if(a.crossings.length)extra+='<p>מרווחים החוצים גבולות תקופות: '+a.crossings.length+'.</p>';
+ const periodRows=a.periods.map(p=>'<tr><td>'+shesClock(p.from)+'–'+shesClock(p.to)+
+  '</td><td>'+fixed(p.frequencyPerHour)+'</td><td>'+p.count+'</td><td>'+
+  (p.meanHeadway==null?'—':fixed(p.meanHeadway))+'</td></tr>').join('');
+ return head+'<div class="shes-scores"><strong>SHES-T: '+fixed(a.SHES_T)+'/100</strong>'+
+  '<strong>SHES: '+fixed(a.SHES)+'/100</strong></div>'+extra+
+  '<details><summary>תקופות תדירות שזוהו</summary><table><thead><tr><th>שעות</th><th>נסיעות/שעה</th><th>יציאות</th><th>מרווח ממוצע (דק׳)</th></tr></thead><tbody>'+
+  periodRows+'</tbody></table></details></article>';
+}
+function calculateGeneratedShes(){
+ if(!shesEnabled||!generated.length)return;
+ const panel=$("shesPanel");
+ panel.classList.remove("hidden");
+ panel.innerHTML='<h3>מדד פיזור הנסיעות — פיילוט SHES / SHES-T</h3>'+
+  '<p class="shes-warning"><strong>חשוב:</strong> המדד מחשב את כל הקווים שנבחרו יחד, גם אם נבחרו תחנות סמוכות ולא זהות. התוצאה רלוונטית רק אם הקווים משרתים בפועל אותו מוצא ויעד ואת אותה אוכלוסיית נוסעים, כך שהנוסעים יכולים לבחור ביניהם. המערכת אינה בודקת את התנאי הזה.</p>'+
+  '<p>המדד מתייחס ללוח המתוכנן, לא לאיחורים או לעומס בפועל. SHES-T סלחני לסטיות קטנות, ו־SHES הוא המדד המדויק. המדדים מוצעים למחקר ואינם תקן רשמי. אין להקיש מציון של 100 על תדירות גבוהה.</p>'+
+  combinedShesForTimetables(generated).map(shesResultHtml).join("");
 }
 function printSelected(index){
  document.querySelectorAll("#resultTables .result").forEach((node,i)=>node.classList.toggle("print-exclude",index!==null&&i!==index));
@@ -679,7 +742,7 @@ $("generate").onclick=createResults;
 $("backResults").onclick=()=>show("generator");
 $("homeResults").onclick=()=>show("home");
 $("resultTables").onclick=()=>{};
-$("downloadActions").onclick=e=>{const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");else if(pdf)printSelected(Number(pdf.dataset.print));else if(e.target.id==="printPdf")printSelected(null);else if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים",true)};
+$("downloadActions").onclick=e=>{if(e.target.id==="calculateShes"){calculateGeneratedShes();return}const csv=e.target.closest("[data-csv]"),pdf=e.target.closest("[data-print]");if(csv)downloadCSV([generated[Number(csv.dataset.csv)]],"לוח-זמנים");else if(pdf)printSelected(Number(pdf.dataset.print));else if(e.target.id==="printPdf")printSelected(null);else if(e.target.id==="allCsv")downloadCSV(generated,"לוחות-זמנים",true)};
 $("helpBtn").onclick=()=>$("helpDialog").showModal();$("closeHelp").onclick=()=>$("helpDialog").close();
 init();
 </script>
