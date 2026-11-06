@@ -123,6 +123,13 @@ async function main(){
  assert(printableHtml.includes('print-grid'),"PDF uses the three-column print grid");
  assert(printableHtml.includes('טור 1')&&printableHtml.includes('טור 2')&&printableHtml.includes('טור 3'),"Each column labeled in reading order");
  assert.equal((printableHtml.match(/class="print-sheet"/g)||[]).length,3,"205 rides span exactly 3 print sheets");
+ assert.equal((printableHtml.match(/class="print-sheet-legend"/g)||[]).length,3,"Every printed sheet repeats the legend");
+ assert.equal((printableHtml.match(/מקרא קווים ותחנות/g)||[]).length,3,"Every printed sheet has a legend heading");
+ assert.equal((printableHtml.match(/class="print-document-title"/g)||[]).length,3,"Every sheet identifies the timetable group");
+ assert(html.includes('#printTitle,#resultLegend{display:none!important}'),"No standalone legend/title page");
+ assert(html.includes('.print-sheet.print-first-visible'),"Single-timetable print suppresses leading blank page");
+ assert(!html.includes('.print-sheet{break-inside:avoid;page-break-inside:avoid;break-after:page'),"No trailing forced break creating a blank page");
+
  assert.equal((printableHtml.match(/<tr><td>/g)||[]).length,205,"Every departure printed once");
  const first=printableHtml.indexOf('06:00'),second=printableHtml.indexOf('08:15');
  assert(first>=0&&second>first,"Times remain chronological across columns");
