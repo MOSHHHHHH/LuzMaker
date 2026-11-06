@@ -238,6 +238,7 @@ let cache=new Map(),operatorIcons={};
 const shesEnabled=/(?:^\?|&)shes=1(?:&|$)/.test(String(window.location?.search||""));
 
 let groups=load(),lineTicket=0,routeTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
+let lastLineLookup=null; // Avoid resetting visible route cards on input blur/change.
 let closedSuggestionsFor=null;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
 function baseLine(s){return normalizeLine(s).match(/\d+/)?.[0]||null}
@@ -491,7 +492,7 @@ function editGroup(id){
  const g=groups.find(x=>x.id===id);editing=id||null;working=g?structuredClone(g.lines):[];
  $("editorTitle").textContent=g?"עריכת קבוצת קווים":"קבוצת קווים חדשה";
  $("groupName").value=g?.name||"";
- $("lineNumber").value="";closedSuggestionsFor=null;resetRoutePicker();$("routeCards").innerHTML="";$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
+ $("lineNumber").value="";lastLineLookup=null;closedSuggestionsFor=null;resetRoutePicker();$("routeCards").innerHTML="";$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
  renderSelected();show("editor")
 }
 function renderSelected(){
@@ -526,7 +527,12 @@ function applyStopFilter(){
  else if(stops.length===1)$("stopSelect").value=String(stops[0].id);
 }
 async function chooseLine(){
- const n=$("lineNumber").value.trim(),token=++lineTicket;
+ const n=$("lineNumber").value.trim(),lookupKey=normalizeLine(n);
+ // Both the debounced input handler and the blur/change handler can run for
+ // the same line. Reinitializing on blur destroys the card being tapped.
+ if(lastLineLookup===lookupKey)return;
+ lastLineLookup=lookupKey;
+ const token=++lineTicket;
  routeTicket++; // Cancel stale async stop loads when the line changes.
  resetRoutePicker();
  $("routeSelect").disabled=true;$("stopSelect").disabled=true;$("routeFilter").disabled=true;$("stopFilter").disabled=true;
