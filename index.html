@@ -128,15 +128,31 @@ input,select{min-height:46px;border-radius:12px}
 @media print{
  #resultTables{display:none!important}
  #printTables{display:block!important}
- .print-sheet{break-inside:avoid;page-break-inside:avoid;break-after:auto;page-break-after:auto}
+ /* A self-contained sheet starts each printed page; no stand-alone legend
+    or forced break after the final sheet. */
+ #results{margin:0!important;padding:0!important;border:0!important;box-shadow:none!important}
+ #printTitle,#resultLegend{display:none!important}
+ #printTables{margin:0!important;padding:0!important}
+ .print-sheet{display:block;break-before:page;page-break-before:always;break-inside:avoid;page-break-inside:avoid;margin:0;padding:0}
+ .print-sheet:first-child{break-before:auto;page-break-before:auto}
+ .print-sheet.print-exclude{display:none!important}
+ .print-sheet .print-sheet-legend{display:block;margin:0 0 2.5mm!important;padding:2mm!important;border:1px solid #bcc9d8;border-radius:5px;break-inside:avoid}
+ .print-sheet-legend .legend-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm}
+ .print-sheet-legend .legend-entry{min-width:0;font-size:7.2pt;line-height:1.15;padding:1.3mm 1.7mm;gap:1.5mm;border:1px solid #d2dbe6;break-inside:avoid}
+ .print-sheet-legend .legend-entry .operator-brand{display:none!important}
+ .print-sheet-legend .legend-entry .muted{font-size:7pt}
+ .print-sheet-legend .line-number{flex:none;font-size:7.4pt}
+ .print-sheet-legend h3{font-size:9pt;margin:0 0 1.5mm;padding:0;border:0}
+ .print-document-title{font-size:9pt;font-weight:700;color:#283e59;margin:0 0 1.5mm}
+
  .print-sheet:last-child{break-after:auto;page-break-after:auto}
- .print-sheet h3{font-size:12pt;line-height:1.3;margin:0 0 3mm;border-bottom:1px solid #b4c7de;padding-bottom:2mm;break-after:avoid}
+ .print-sheet > h3{font-size:11pt;line-height:1.25;margin:0 0 2mm;border-bottom:1px solid #b4c7de;padding-bottom:1.5mm;break-after:avoid}
  .print-sheet .print-continued{font-size:8pt;color:#394d66}
  .print-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3.3mm;direction:rtl;align-items:start}
  .print-column{min-width:0;break-inside:avoid}
  .print-column table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:9pt;line-height:1.17;direction:rtl}
  .print-column th{font-size:8.2pt;padding:1.6mm 1.6mm;text-align:right;background:#edf3fb!important;border-bottom:1px solid #718cac}
- .print-column td{padding:1.05mm 1.6mm;border-bottom:1px solid #e1e6ed;text-align:right}
+ .print-column td{padding:.85mm 1.6mm;border-bottom:1px solid #e1e6ed;text-align:right}
  .print-column td:first-child,.print-column th:first-child{width:48%}
  .print-column td:last-child,.print-column th:last-child{width:52%;text-align:center}
  .print-column .clock{font-size:9.1pt;font-weight:700;direction:ltr;unicode-bidi:isolate;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -705,16 +721,14 @@ function resultLegendHtml(legend){
 }
 // Print-only columns are explicit, so browsers cannot reorder the chronology
 // or break an arbitrary table row across columns. Each column reads downward.
-const PRINT_FIRST_ROWS_PER_COLUMN=27;
-const PRINT_NEXT_ROWS_PER_COLUMN=35;
+const PRINT_ROWS_PER_COLUMN=29; // Reserve space for the compact legend on EVERY A4 sheet.
 function printTimetableSheets(timetables,legend){
  const allDates=timetableDates(timetables),out=[];
  for(let timetableIndex=0;timetableIndex<timetables.length;timetableIndex++){
   const a=timetables[timetableIndex],rows=a.rows;
   let cursor=0,sheetNumber=0;
   do{
-   // First page also contains the group legend, so it uses shorter columns.
-   const capacity=out.length===0?PRINT_FIRST_ROWS_PER_COLUMN:PRINT_NEXT_ROWS_PER_COLUMN;
+   const capacity=PRINT_ROWS_PER_COLUMN;
    const pages=[],first=cursor;
    for(let column=0;column<3&&cursor<rows.length;column++){
     const section=rows.slice(cursor,cursor+capacity);cursor+=section.length;
@@ -724,7 +738,7 @@ function printTimetableSheets(timetables,legend){
    }
    const title=safe(a.alias)+' — '+safe(dateListDisplay(a.dates,allDates));
    const continuation=sheetNumber?' <span class="print-continued">(המשך · עמוד '+(sheetNumber+1)+' של לוח זה)</span>':'';
-   out.push('<section class="print-sheet" data-print-result-index="'+timetableIndex+'" data-print-start="'+first+'" dir="rtl"><h3>'+title+continuation+'</h3>'+
+   out.push('<section class="print-sheet" data-print-result-index="'+timetableIndex+'" data-print-start="'+first+'" dir="rtl"><div class="print-document-title">לו״ז מייקר — '+safe(selectedGroup?.name||"לוחות זמנים")+'</div><div class="print-sheet-legend">'+resultLegendHtml(legend)+'</div><h3>'+title+continuation+'</h3>'+
     (pages.length?'<div class="print-grid">'+pages.join("")+'</div>':'<div class="print-empty">אין נסיעות ביום זה בתחנות שנבחרו</div>')+'</section>');
    sheetNumber++;
   }while(cursor<rows.length);
