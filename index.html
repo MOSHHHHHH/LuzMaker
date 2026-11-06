@@ -588,7 +588,7 @@ async function addLine(silent=false){
   }
   renderSelected();editorMessage("");
   $("addStatus").textContent="הקו נוסף בהצלחה ✓";
-  $("lineNumber").value="";$("routeSelect").innerHTML='<option>בחר קו</option>';$("stopSelect").innerHTML='<option>בחר מסלול</option>';
+  $("lineNumber").value="";lastLineLookup=null;$("routeSelect").innerHTML='<option>בחר קו</option>';$("stopSelect").innerHTML='<option>בחר מסלול</option>';
   resetRoutePicker();$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("routeFilter").disabled=true;$("stopFilter").disabled=true;$("routeFilter").value="";$("stopFilter").value="";$("routeCards").innerHTML="";renderLineSuggestions();
   return true;
  }catch(e){editorMessage(e.message);return false}
