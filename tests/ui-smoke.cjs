@@ -30,10 +30,15 @@ const doc={
  createElement:()=>({click(){},set href(v){},set download(v){}}),
 };
 const localStorage={getItem:()=>null,setItem(){}};
+// Fixed test clock: fixture schedule starts on 2026-11-05, independent of today's date.
+class TestDate extends Date{
+ constructor(...args){super(...(args.length?args:["2026-11-05T12:00:00Z"]))}
+ static now(){return new Date("2026-11-05T12:00:00Z").getTime()}
+}
 const sandbox={
- console,document:doc,window:{addEventListener(){},print(){}},
+ console,document:doc,window:{addEventListener(){},print(){},location:{search:""}},
  localStorage,crypto:{randomUUID:()=>"test-id"},navigator:{},URL:{createObjectURL(){return "blob:fake"},revokeObjectURL(){}},
- Blob,Date,Map,Set,Array,JSON,Number,String,Math,Promise,Intl,structuredClone,
+ Blob,Date:TestDate,Map,Set,Array,JSON,Number,String,Math,Promise,Intl,structuredClone,
  alert(m){throw new Error("Unexpected alert: "+m)},confirm:()=>true,setTimeout,clearTimeout,
  fetch:async url=>{
   let value=url.endsWith("/data/index.json")?idx:data[url.split("/").at(-1)];
