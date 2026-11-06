@@ -62,6 +62,8 @@ async function main(){
  el("lineNumber").value="15א";
  await run("chooseLine()");
  assert.equal(el("routeSelect").value,"0","Single route auto-selected");
+ assert(!html.includes('list="availableLines"'),"No browser-native line-number suggestions");
+ assert(!html.includes('id="availableLines"'),"Remove redundant native datalist entirely");
  assert(html.includes('class="sr-only-route"'),"Native route dropdown must be visually hidden");
  assert(html.includes('id="chosenRoute"'),"Chosen route summary exists");
  assert(el("chosenRoute").innerHTML.includes("מסלול נבחר"),"Single-route auto-selection collapses styled cards into summary");
@@ -71,6 +73,17 @@ async function main(){
  assert(el("chosenRoute").innerHTML.includes("מסלול נבחר"),"Route summary can reopen and collapse again");
 
  assert.equal(el("stopSelect").value,"S15A","Single stop auto-selected");
+ // A delayed data load must never hold the route-card list open.
+ await run('reopenRoutePicker()');
+ await run('cache.delete("15א");var savedGetLine=getLine;var finishStops;getLine=()=>new Promise(resolve=>{finishStops=resolve})');
+ const pending=run('chooseRoute()');
+ assert(el("chosenRoute").innerHTML.includes("מסלול נבחר"),"Route cards collapse while stops are loading");
+ assert(el("stopSelect").innerHTML.includes("טוען תחנות"),"Stop selector immediately shows loading");
+ await run('finishStops({routes:[{id:"letter-15",name:"מסלול חלופי",stops:[{id:"S15A",name:"תחנה חלופית"}]}]})');
+ await pending;
+ await run('getLine=savedGetLine;cache.set("15א",'+JSON.stringify({routes:[{id:"letter-15",name:"מסלול חלופי",stops:[{id:"S15A",name:"תחנה חלופית"}],t:{"S15A":[[1,520]]}}]})+')');
+ assert.equal(el("stopSelect").value,"S15A","Station options restored after JSON loading");
+
  // Clicking a suggested line selects it and closes suggestions synchronously,
  // even though the subsequent route fetch is asynchronous.
  el("lineNumber").value="15";
