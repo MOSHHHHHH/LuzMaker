@@ -63,6 +63,18 @@ async function main(){
  await run("chooseLine()");
  assert.equal(el("routeSelect").value,"0","Single route auto-selected");
  assert.equal(el("stopSelect").value,"S15A","Single stop auto-selected");
+ // Clicking a suggested line selects it and closes suggestions synchronously,
+ // even though the subsequent route fetch is asynchronous.
+ el("lineNumber").value="15";
+ await run('renderLineSuggestions()');
+ assert(el("lineSuggestions").innerHTML.includes('data-suggestion="15א"'));
+ el("lineSuggestions").onclick({target:{closest(){return {dataset:{suggestion:"15א"}}}}});
+ assert.equal(el("lineNumber").value,"15א");
+ assert.equal(el("lineSuggestions").innerHTML,"","Dropdown closes immediately");
+ await run('renderLineSuggestions()');
+ assert.equal(el("lineSuggestions").innerHTML,"","Async line selection must not reopen menu");
+ for(let i=0;i<20&&el("routeSelect").value!=="0";i++)await new Promise(resolve=>setTimeout(resolve,5));
+
  // Regression: pressing Save immediately, without clicking Add, must add line.
  await run("saveGroup()");
  assert.equal((await run("groups.length")),1);
@@ -131,7 +143,18 @@ async function main(){
  const within=await run('yearVisibility(["2025-11-05","2025-11-06"])');
  assert.equal(within.hebrew,false);
  assert.equal(within.gregorian,false);
- assert.equal(await run('dateListDisplay(["2025-12-08","2025-12-09"])'),"י״ח בכסלו (08.12) · י״ט בכסלו (09.12)","Omit both shared years");
+ assert.equal(await run('dateListDisplay(["2025-12-08","2025-12-09"])'),"י״ח עד י״ט בכסלו (08 עד 09.12)","Consecutive dates form a compact range");
+ // Date ranges must survive Hebrew month transitions, but disjoint blocks stay separate.
+ const hebrewDates=[];
+ for(let i=0;i<45;i++){
+  const d=new Date(Date.UTC(2026,10,5+i)).toISOString().slice(0,10);
+  if(/^(כ״ח|כ״ט|ל׳) בחשוון|^(א׳|ב׳|ה׳|ו׳|ז׳|ח׳) בכסלו/.test(await run('hebrewDate('+JSON.stringify(d)+',false)')))
+   hebrewDates.push(d);
+ }
+ await run('updateCalendarView("hebrew")');
+ assert.equal(await run('dateListDisplay('+JSON.stringify(hebrewDates)+')'),"כ״ח בחשוון עד ב׳ בכסלו · ה׳ עד ח׳ בכסלו","Merge consecutive Hebrew dates crossing a month and split discontinuities");
+ await run('updateCalendarView("both")');
+
  const hebrewBoundary=await run('yearVisibility(["2025-09-22","2025-09-23"])');
  assert.equal(hebrewBoundary.hebrew,true,"Hebrew new year boundary must display Hebrew year");
  assert.equal(hebrewBoundary.gregorian,false,"Same civil year must omit civil year");
