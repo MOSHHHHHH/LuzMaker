@@ -120,6 +120,37 @@ input,select{min-height:46px;border-radius:12px}
 .shes-panel details{margin-top:12px}
 .shes-panel summary{cursor:pointer;font-weight:700}
 @media print{#shesPanel{display:none!important}}
+
+/* Dense, chronological PDF: read down the right column, then the middle,
+   then the left, then continue on the next page. Screen layout is unchanged. */
+#printTables{display:none}
+@page{size:A4 portrait;margin:11mm 10mm}
+@media print{
+ #resultTables{display:none!important}
+ #printTables{display:block!important}
+ .print-sheet{break-inside:avoid;page-break-inside:avoid;break-after:page;page-break-after:always}
+ .print-sheet:last-child{break-after:auto;page-break-after:auto}
+ .print-sheet h3{font-size:12pt;line-height:1.3;margin:0 0 3mm;border-bottom:1px solid #b4c7de;padding-bottom:2mm;break-after:avoid}
+ .print-sheet .print-continued{font-size:8pt;color:#394d66}
+ .print-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3.3mm;direction:rtl;align-items:start}
+ .print-column{min-width:0;break-inside:avoid}
+ .print-column table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:9pt;line-height:1.17;direction:rtl}
+ .print-column th{font-size:8.2pt;padding:1.6mm 1.6mm;text-align:right;background:#edf3fb!important;border-bottom:1px solid #718cac}
+ .print-column td{padding:1.05mm 1.6mm;border-bottom:1px solid #e1e6ed;text-align:right}
+ .print-column td:first-child,.print-column th:first-child{width:48%}
+ .print-column td:last-child,.print-column th:last-child{width:52%;text-align:center}
+ .print-column .clock{font-size:9.1pt;font-weight:700;direction:ltr;unicode-bidi:isolate;white-space:nowrap;font-variant-numeric:tabular-nums}
+ .print-column .line-number{font-size:8pt;line-height:1.14;padding:.35mm 1.6mm;white-space:nowrap}
+ .print-column-heading{font-size:8pt;color:#253f5d;font-weight:700;padding:0 0 1mm;margin:0;white-space:nowrap}
+ .print-sheet,.print-column,.print-column table{overflow:visible}
+ .print-empty{font-size:10pt;padding:6mm;text-align:center;border:1px dashed #b1c0d0}
+ #printTitle{font-size:13pt!important;margin:0 0 2mm!important}
+ .timetable-legend{padding:5mm!important;margin:2mm 0 5mm!important}
+ .legend-grid{gap:2mm}
+ .legend-entry{font-size:8pt;padding:2mm}
+ .legend-entry .operator-brand{margin:1mm 0}
+}
+
 </style>
 </head>
 <body>
@@ -167,6 +198,7 @@ input,select{min-height:46px;border-radius:12px}
  <div class="actions no-print" id="downloadActions"></div>
  <div id="shesPanel" class="shes-panel no-print hidden" aria-live="polite"></div>
  <div id="resultTables"></div>
+ <div id="printTables" class="print-only" aria-hidden="true"></div>
 </section>
 </main>
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
@@ -671,6 +703,34 @@ function resultLegendHtml(legend){
   '<div class="legend-entry">'+lineBadge(item.label,item.colors)+'<div><strong>'+safe(item.route)+'</strong>'+operatorBrandHtml(item.agency,item.agencyId)+'<div class="muted small">תחנה מבוקשת: '+safe(item.stop)+'</div></div></div>'
  ).join("")+'</div>';
 }
+// Print-only columns are explicit, so browsers cannot reorder the chronology
+// or break an arbitrary table row across columns. Each column reads downward.
+const PRINT_FIRST_ROWS_PER_COLUMN=27;
+const PRINT_NEXT_ROWS_PER_COLUMN=35;
+function printTimetableSheets(timetables,legend){
+ const allDates=timetableDates(timetables),out=[];
+ for(let timetableIndex=0;timetableIndex<timetables.length;timetableIndex++){
+  const a=timetables[timetableIndex],rows=a.rows;
+  let cursor=0,sheetNumber=0;
+  do{
+   // First page also contains the group legend, so it uses shorter columns.
+   const capacity=out.length===0?PRINT_FIRST_ROWS_PER_COLUMN:PRINT_NEXT_ROWS_PER_COLUMN;
+   const pages=[],first=cursor;
+   for(let column=0;column<3&&cursor<rows.length;column++){
+    const section=rows.slice(cursor,cursor+capacity);cursor+=section.length;
+    const firstTime=timeString(section[0].min),lastTime=timeString(section.at(-1).min);
+    const entries=section.map(row=>'<tr><td>'+lineBadge(labeledLine(row,legend),legend.get(legendIdentity(row.line,row.routeId,row.stopId))?.colors)+'</td><td class="clock">'+timeString(row.min)+'</td></tr>').join("");
+    pages.push('<div class="print-column"><p class="print-column-heading">טור '+(column+1)+' · '+firstTime+'–'+lastTime+'</p><table><thead><tr><th>קו</th><th>שעה</th></tr></thead><tbody>'+entries+'</tbody></table></div>');
+   }
+   const title=safe(a.alias)+' — '+safe(dateListDisplay(a.dates,allDates));
+   const continuation=sheetNumber?' <span class="print-continued">(המשך · עמוד '+(sheetNumber+1)+' של לוח זה)</span>':'';
+   out.push('<section class="print-sheet" data-print-result-index="'+timetableIndex+'" data-print-start="'+first+'" dir="rtl"><h3>'+title+continuation+'</h3>'+
+    (pages.length?'<div class="print-grid">'+pages.join("")+'</div>':'<div class="print-empty">אין נסיעות ביום זה בתחנות שנבחרו</div>')+'</section>');
+   sheetNumber++;
+  }while(cursor<rows.length);
+ }
+ return out.join("");
+}
 function createResults(readSelection=true){
  if(readSelection){
   selectedTypes=[...document.querySelectorAll("[data-type]:checked")].map(e=>Number(e.dataset.type));
@@ -681,6 +741,7 @@ function createResults(readSelection=true){
  $("printTitle").textContent="לו״ז מייקר — "+selectedGroup.name;
  $("resultLegend").innerHTML=resultLegendHtml(legend);
  $("resultSource").textContent="לוחות מתוכננים ממשרד התחבורה. יום תחבורתי 03:00–02:59 למחרת. ייתכנו שינויים.";
+ $("printTables").innerHTML=printTimetableSheets(generated,legend);
  $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates,timetableDates(generated)))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
  (a.rows.length?a.rows.map(r=>'<tr><td>'+lineBadge(labeledLine(r,legend),legend.get(legendIdentity(r.line,r.routeId,r.stopId))?.colors)+'</td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
  '</tbody></table></section>').join("");
@@ -737,7 +798,7 @@ function calculateGeneratedShes(){
   combinedShesForTimetables(generated).map(shesResultHtml).join("");
 }
 function printSelected(index){
- document.querySelectorAll("#resultTables .result").forEach((node,i)=>node.classList.toggle("print-exclude",index!==null&&i!==index));
+ document.querySelectorAll("#printTables .print-sheet").forEach(node=>node.classList.toggle("print-exclude",index!==null&&Number(node.dataset.printResultIndex)!==index));
  window.print();
 }
 window.addEventListener("afterprint",()=>document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude")));
