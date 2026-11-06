@@ -62,6 +62,14 @@ async function main(){
  el("lineNumber").value="15א";
  await run("chooseLine()");
  assert.equal(el("routeSelect").value,"0","Single route auto-selected");
+ assert(html.includes('class="sr-only-route"'),"Native route dropdown must be visually hidden");
+ assert(html.includes('id="chosenRoute"'),"Chosen route summary exists");
+ assert(el("chosenRoute").innerHTML.includes("מסלול נבחר"),"Single-route auto-selection collapses styled cards into summary");
+ assert(el("chosenRoute").innerHTML.includes("שנה מסלול"),"A selected route can be changed");
+ await run('reopenRoutePicker()');
+ await run('collapseRoutePicker()');
+ assert(el("chosenRoute").innerHTML.includes("מסלול נבחר"),"Route summary can reopen and collapse again");
+
  assert.equal(el("stopSelect").value,"S15A","Single stop auto-selected");
  // Clicking a suggested line selects it and closes suggestions synchronously,
  // even though the subsequent route fetch is asynchronous.
