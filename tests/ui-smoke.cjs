@@ -117,6 +117,18 @@ async function main(){
 
  assert(html.includes('id="homeResults"'),"Home button exists");
  assert(html.includes('id="downloadActions"'),"Downloads are above the result tables");
+ // Print-only sheets use top-to-bottom columns, then move right-to-left.
+ const printableRows=Array.from({length:205},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:360+i*5}));
+ const printableHtml=await run('printTimetableSheets([{alias:"דוגמה",dates:["2026-11-05"],rows:'+JSON.stringify(Array.from({length:205},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:360+i*5})))+'}],colorizeLineLegend(makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"}])))');
+ assert(printableHtml.includes('print-grid'),"PDF uses the three-column print grid");
+ assert(printableHtml.includes('טור 1')&&printableHtml.includes('טור 2')&&printableHtml.includes('טור 3'),"Each column labeled in reading order");
+ assert.equal((printableHtml.match(/class="print-sheet"/g)||[]).length,3,"205 rides span exactly 3 print sheets");
+ assert.equal((printableHtml.match(/<tr><td>/g)||[]).length,205,"Every departure printed once");
+ const first=printableHtml.indexOf('06:00'),second=printableHtml.indexOf('08:15');
+ assert(first>=0&&second>first,"Times remain chronological across columns");
+ assert(html.includes('@page{size:A4 portrait'),"Print page uses A4");
+ assert(html.includes('#resultTables{display:none!important}'),"Screen tables must not duplicate in print");
+
  assert(html.indexOf('id="downloadActions"')<html.indexOf('id="resultTables"'),"Downloads appear first");
  assert(html.includes('["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]'),"CSV exports both calendar dates and stop name");
  // Combined export carries the selected timetable title in every data row.
