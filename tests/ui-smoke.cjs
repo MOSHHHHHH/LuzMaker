@@ -3,6 +3,7 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
 const html=fs.readFileSync("index.html","utf8");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+const shesScript=fs.readFileSync("scripts/shes.js","utf8");
 assert(script,"Inline app script missing");
 const els=new Map();
 function el(id){
@@ -36,7 +37,7 @@ class TestDate extends Date{
  static now(){return new Date("2026-11-05T12:00:00Z").getTime()}
 }
 const sandbox={
- console,document:doc,window:{addEventListener(){},print(){},location:{search:""}},
+ console,document:doc,window:{addEventListener(){},print(){},location:{search:"?shes=1"}},
  localStorage,crypto:{randomUUID:()=>"test-id"},navigator:{},URL:{createObjectURL(){return "blob:fake"},revokeObjectURL(){}},
  Blob,Date:TestDate,Map,Set,Array,JSON,Number,String,Math,Promise,Intl,structuredClone,
  alert(m){throw new Error("Unexpected alert: "+m)},confirm:()=>true,setTimeout,clearTimeout,
@@ -46,6 +47,7 @@ const sandbox={
  }
 };
 vm.createContext(sandbox);
+vm.runInContext(shesScript,sandbox,{filename:"shes.js"});
 vm.runInContext(script,sandbox,{filename:"index.html"});
 async function run(code){return vm.runInContext(code,sandbox)}
 async function main(){
@@ -148,6 +150,13 @@ async function main(){
  assert.equal(await run('dateDisplay("2024-03-24")'),"24.03.2024","Gregorian-only calendar mode");
  await run('updateCalendarView("both")');
  assert(!html.includes('<th style="width:70%">מסלול</th>'),"Timetable no longer repeats route name column");
+ // Experimental report must combine all rows (different routes/stops) in one score.
+ await run('generated=analyzed.map(a=>({...a,alias:"לוח ניסוי"}));createResults(false)');
+ assert(el("downloadActions").innerHTML.includes('id="calculateShes"'),"The opt-in URL reveals an analysis button");
+ await run('calculateGeneratedShes()');
+ assert(el("shesPanel").innerHTML.includes("כל הקווים שנבחרו יחד"),"Explanation combines parallel routes");
+ assert(el("shesPanel").innerHTML.includes("תחנות סמוכות ולא זהות"),"Nearby stops may be combined");
+ assert(el("shesPanel").innerHTML.includes("אותו מוצא ויעד"),"Report must state same origin/destination");
  // Ensure route timings use the date mask and are not mixed with adjacent numbers.
  const day=await run('scheduleFor("2026-11-05")');
  assert.equal(day.length,1);
