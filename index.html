@@ -185,6 +185,7 @@ let cache=new Map(),operatorIcons={};
 const shesEnabled=/(?:^\?|&)shes=1(?:&|$)/.test(String(window.location?.search||""));
 
 let groups=load(),lineTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
+let closedSuggestionsFor=null;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
 function baseLine(s){return normalizeLine(s).match(/\d+/)?.[0]||null}
 function lineMatches(value){
@@ -197,6 +198,7 @@ function lineMatches(value){
 function editorMessage(message){$("editorError").textContent=message;$("editorError").classList.toggle("hidden",!message)}
 function renderLineSuggestions(){
  const value=$("lineNumber").value.trim(),matches=lineMatches(value);
+ if(closedSuggestionsFor===value){$("lineSuggestions").innerHTML="";return}
  $("lineSuggestions").innerHTML=matches.map(n=>'<button type="button" data-suggestion="'+safe(n)+'" class="'+(normalizeLine(n)===normalizeLine(value)?"exact":"")+'">'+safe(n)+'</button>').join("");
  $("lineHint").textContent=!value?"הזן מספר קו, כולל אות אם יש.":!matches.length?"לא נמצאו קווים תואמים.":matches.some(n=>normalizeLine(n)===normalizeLine(value))?"נמצאה התאמה מדויקת — בחר מסלול ותחנה.":"נמצאו קווים קרובים אך לא זהים; בחר את השילוט הרצוי.";
 }
@@ -283,9 +285,38 @@ function dateDisplay(iso,style=calendarView,visibility=null){
  return style==="hebrew"?heb:style==="gregorian"?greg:heb+" ("+greg+")";
 }
 function dateLabel(d){return dateDisplay(dateISO(d))}
+// Collapse consecutive CIVIL dates, including a sequence crossing Hebrew months.
+function consecutiveDateGroups(dates){
+ const sorted=[...new Set(dates)].sort(),groups=[];
+ for(const iso of sorted){
+  const last=groups.at(-1),previous=last?.at(-1);
+  if(last&&Math.round((isoCivilDate(iso)-isoCivilDate(previous))/86400000)===1)last.push(iso);
+  else groups.push([iso]);
+ }
+ return groups;
+}
+function hebrewRange(first,last,showYear){
+ const a=hebrewDateParts(first),b=hebrewDateParts(last);
+ if(a.month===b.month&&a.yearKey===b.yearKey)
+  return a.day+" עד "+b.day+" ב"+b.month+(showYear?" "+b.year:"");
+ return hebrewDate(first,showYear)+" עד "+hebrewDate(last,showYear);
+}
+function gregorianRange(first,last,showYear){
+ const a=first.split("-"),b=last.split("-");
+ const shortDay=iso=>String(Number(iso.slice(8,10))).padStart(2,"0");
+ if(a[0]===b[0]&&a[1]===b[1])
+  return shortDay(first)+" עד "+gregorianDate(last,showYear);
+ return gregorianDate(first,showYear)+" עד "+gregorianDate(last,showYear);
+}
 function dateListDisplay(dates,allDates=null){
  const visibility=yearVisibility(allDates||dates);
- return dates.map(iso=>dateDisplay(iso,calendarView,visibility)).join(" · ");
+ return consecutiveDateGroups(dates).map(group=>{
+  const first=group[0],last=group.at(-1);
+  if(first===last)return dateDisplay(first,calendarView,visibility);
+  const heb=hebrewRange(first,last,visibility.hebrew);
+  const greg=gregorianRange(first,last,visibility.gregorian);
+  return calendarView==="hebrew"?heb:calendarView==="gregorian"?greg:heb+" ("+greg+")";
+ }).join(" · ");
 }
 function timetableDates(timetables){return timetables.flatMap(item=>item.dates)}
 function updateCalendarView(value){
@@ -384,7 +415,7 @@ function editGroup(id){
  const g=groups.find(x=>x.id===id);editing=id||null;working=g?structuredClone(g.lines):[];
  $("editorTitle").textContent=g?"עריכת קבוצת קווים":"קבוצת קווים חדשה";
  $("groupName").value=g?.name||"";
- $("lineNumber").value="";$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
+ $("lineNumber").value="";closedSuggestionsFor=null;$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
  renderSelected();show("editor")
 }
 function renderSelected(){
@@ -728,11 +759,11 @@ function downloadCSV(list,filename,includeTimetableName=false){
 }
 document.querySelector(".calendar-preference").onclick=e=>{const button=e.target.closest("[data-calendar]");if(button)updateCalendarView(button.dataset.calendar)};
 $("newGroup").onclick=()=>editGroup(null);$("cancelEdit").onclick=$("cancelEdit2").onclick=()=>show("home");
-$("lineNumber").addEventListener("input",()=>{clearTimeout(lookupTimer);renderLineSuggestions();lookupTimer=setTimeout(chooseLine,260);});
-$("lineNumber").addEventListener("change",()=>{clearTimeout(lookupTimer);chooseLine()});
+$("lineNumber").addEventListener("input",()=>{closedSuggestionsFor=null;clearTimeout(lookupTimer);renderLineSuggestions();lookupTimer=setTimeout(chooseLine,260);});
+$("lineNumber").addEventListener("change",()=>{clearTimeout(lookupTimer);if(currentLine()){closedSuggestionsFor=$("lineNumber").value.trim();$("lineSuggestions").innerHTML="";}chooseLine()});
 $("routeFilter").addEventListener("input",applyRouteFilter);
 $("stopFilter").addEventListener("input",applyStopFilter);
-$("lineSuggestions").onclick=e=>{const b=e.target.closest("[data-suggestion]");if(!b)return;$("lineNumber").value=b.dataset.suggestion;clearTimeout(lookupTimer);chooseLine()};
+$("lineSuggestions").onclick=e=>{const b=e.target.closest("[data-suggestion]");if(!b)return;$("lineNumber").value=b.dataset.suggestion;closedSuggestionsFor=$("lineNumber").value.trim();$("lineSuggestions").innerHTML="";$("lineNumber").blur?.();clearTimeout(lookupTimer);void chooseLine()};
 $("routeCards").onclick=e=>{const b=e.target.closest("[data-route]");if(!b)return;$("routeSelect").value=b.dataset.route;void chooseRoute()};
 $("routeSelect").onchange=chooseRoute;$("addLine").onclick=()=>addLine(false);$("saveGroup").onclick=saveGroup;
 $("selectedLines").onclick=e=>{const b=e.target.closest("[data-remove]");if(b){working.splice(Number(b.dataset.remove),1);renderSelected()}};
