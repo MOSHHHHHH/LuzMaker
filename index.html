@@ -710,7 +710,7 @@ function validateAliases(){
 }
 function renderAnalysis(){
  $("smartResults").classList.remove("hidden");
- const aliases=uniqueAliases(analyzed.map(a=>({id:a.id,alias:aliasDrafts.get(a.id)?.manual?aliasDrafts.get(a.id).value:suggestedAlias(a.dates)})));
+ const aliases=uniqueAliases(analyzed.map(a=>({id:a.id,manual:Boolean(aliasDrafts.get(a.id)?.manual),alias:aliasDrafts.get(a.id)?.manual?aliasDrafts.get(a.id).value:suggestedAlias(a.dates)})));
  $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map((a,i)=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+safe(dateListDisplay(a.dates,timetableDates(analyzed)))+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input data-alias="'+a.id+'" id="alias-'+a.id+'" maxlength="70" value="'+safe(aliases[i].alias)+'"></div>').join("")+'<p class="muted small">לכל לוח יש שם ייחודי. ימים עם נסיעות זהות מאוחדים.</p>';
  $("generate").classList.remove("hidden");
  validateAliases();
