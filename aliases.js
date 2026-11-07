@@ -49,12 +49,14 @@ function specialDayName(iso){
   if(day>=16&&day<=20)return "חול המועד סוכות";
   if(day===21)return "הושענא רבה";
   if(day===22)return "שמיני עצרת ושמחת תורה";
+  if(day===23)return "אסרו חג סוכות";
  }
  if(is("nisan","nissan")){
   if(day===14)return "ערב פסח";
   if(day===15)return "פסח";
   if(day>=16&&day<=20)return "חול המועד פסח";
   if(day===21)return "שביעי של פסח";
+  if(day===22)return "אסרו חג פסח";
  }
  if(is("kislev")&&day>=25)return "חנוכה";
  if(is("tevet")&&day<=3){
@@ -70,6 +72,7 @@ function specialDayName(iso){
  if(is("adar","adarii","adar2")&&day===11&&weekday===4){const next=new Date(date);next.setUTCDate(next.getUTCDate()+2);const parts=new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"}).formatToParts(next);if(Number(parts.find(x=>x.type==="day")?.value)===13)return "תענית אסתר"}
  if(is("adar","adarii","adar2")&&day===14)return "פורים";
  if(is("adar","adarii","adar2")&&day===15)return "שושן פורים";
+ if(is("adari","adar1")&&day===15)return "שושן פורים קטן";
  if(is("adari","adar1")&&day===14)return "פורים קטן";
  if(is("adar","adarii","adar2")&&day===13)return "ערב פורים";
  if(is("iyar","iyyar")&&day===14)return "פסח שני";
@@ -77,12 +80,18 @@ function specialDayName(iso){
  if(is("iyar","iyyar")&&day===28)return "יום ירושלים";
  if(is("sivan")&&day===5)return "ערב שבועות";
  if(is("sivan")&&day===6)return "שבועות";
+ if(is("sivan")&&day===7)return "אסרו חג שבועות";
  if(is("tammuz","tamuz")&&day===17&&weekday!==6)return "שבעה עשר בתמוז";
- if(is("av")&&day===8)return "ערב תשעה באב";
+ if(is("av")&&day===8){const next=new Date(date);next.setUTCDate(next.getUTCDate()+1);if(next.getUTCDay()!==6)return "ערב תשעה באב"}
+ if(is("av")&&day===9&&weekday===6)return "ערב תשעה באב";
  if(is("av")&&day===9&&weekday!==6)return "תשעה באב";
  if(is("av")&&day===15)return "ט״ו באב";
  if(is("heshvan","cheshvan")&&day===29)return "סיגד";
  if(is("elul")&&day===29)return "ערב ראש השנה";
+ // Fixed Gregorian observances: distinguish them from Hebrew-calendar holidays.
+ const mm=String(date.getUTCMonth()+1).padStart(2,"0"),dd=String(date.getUTCDate()).padStart(2,"0");
+ if(mm==="01"&&dd==="01")return "ראש השנה האזרחית";
+ if(mm==="12"&&dd==="25")return "חג המולד";
  return null;
 }
 function suggestedHolidayAlias(dates,calendarView,dateDisplay,visibility){
