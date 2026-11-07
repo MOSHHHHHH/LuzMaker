@@ -21,6 +21,7 @@ KNOWN = {
  "Erev Yom Kippur": "ערב יום כיפור",
  "Yom Kippur": "יום כיפור",
  "Erev Sukkot": "ערב סוכות",
+ "Sukkot VII": "הושענא רבה",
  "Sukkot": "סוכות",
  "Sukkot Chol ha-Moed": "חול המועד סוכות",
  "Hoshana Raba": "הושענא רבה",
@@ -35,6 +36,7 @@ KNOWN = {
  "Purim Katan": "פורים קטן",
  "Shushan Purim Katan": "שושן פורים קטן",
  "Erev Pesach": "ערב פסח",
+ "Pesach VII": "שביעי של פסח",
  "Pesach": "פסח",
  "Pesach Chol ha-Moed": "חול המועד פסח",
  "Pesach Sheni": "פסח שני",
@@ -51,11 +53,19 @@ KNOWN = {
  "Tish'a B'Av": "תשעה באב",
  "Tu B'Av": "ט״ו באב",
  "Yom HaAliyah": "יום העלייה",
+ "Yom HaAliyah School Observance": "יום העלייה במערכת החינוך",
+ "Yitzhak Rabin Memorial Day": "יום הזיכרון ליצחק רבין",
+ "Ben-Gurion Day": "יום בן-גוריון",
+ "Swords of Iron War Memorial Day": "יום הזיכרון לחללי מלחמת חרבות ברזל",
  "Sigd": "סיגד",
 }
 # Event descriptions from Hebcal may include day numbers e.g. Chanukah: 3 Candles.
 def label(title):
     title = str(title).strip()
+    if title.startswith("Sukkot ") and ("CH" in title or "Chol" in title):
+        return "חול המועד סוכות"
+    if title.startswith("Pesach ") and ("CH" in title or "Chol" in title):
+        return "חול המועד פסח"
     for prefix, name in sorted(KNOWN.items(), key=lambda x: -len(x[0])):
         if title == prefix or title.startswith(prefix + " ") or title.startswith(prefix + ":") or title.startswith(prefix + " I") or title.startswith(prefix + " VII"):
             return name
@@ -65,7 +75,7 @@ def generate(start, days, destination):
     end = start + timedelta(days=days-1)
     query = urllib.parse.urlencode({
         "v":"1","cfg":"json","start":start.isoformat(),"end":end.isoformat(),
-        "maj":"on","min":"on","mod":"on","mf":"on","il":"on","nx":"off",
+        "maj":"on","min":"on","mod":"on","mf":"on","i":"on","nx":"off",
         "ss":"off","s":"off","o":"off","c":"off","lg":"en"
     })
     request = urllib.request.Request("https://www.hebcal.com/hebcal?"+query,
