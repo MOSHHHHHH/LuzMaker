@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1254a3"><meta name="description" content="לו״ז מייקר – לוחות זמנים אישיים לתחבורה ציבורית בישראל">
-<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="icon" type="image/svg+xml" href="./logo.svg">
 <title>לו״ז מייקר — בטא</title>
 <style>
 :root{font-family:Arial,"Noto Sans Hebrew",sans-serif;color:#16243a;background:#f3f6fb;line-height:1.5;color-scheme:light}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;border-radius:10px;border:1px solid #c9d5e5;padding:10px 16px;background:white;color:#183451}button:hover{background:#f1f6fd}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #77b8fa;outline-offset:2px}
 .primary{background:#1659a9;color:white;border-color:#1659a9}.primary:hover{background:#104984}.danger{color:#a72c33}.muted{color:#5b6d80}.small{font-size:.88rem}.pill{display:inline-flex;background:#e9eff8;border-radius:20px;padding:3px 10px;font-size:.85rem;margin:2px}.wrap{max-width:980px;margin:auto;padding:20px}.header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.logo{display:flex;gap:12px;align-items:center}.logo-icon{border-radius:14px;background:#1659a9;color:#fff;padding:13px;font-size:1.3rem}h1{margin:0;font-size:1.45rem}h2{font-size:1.2rem;margin:0 0 12px}h3{margin:0 0 10px;font-size:1.05rem}p{margin:7px 0 15px}.panel{background:#fff;border:1px solid #dce4f0;border-radius:16px;padding:20px;margin-top:18px;box-shadow:0 3px 12px #1e46740b}.hero{background:linear-gradient(120deg,#e6f1ff,#fff)}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.grow{flex:1}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.card{border:1px solid #dce4f0;border-radius:12px;padding:16px}.badge{background:#fff3d6;border-radius:8px;padding:7px 11px;font-size:.9rem}.notice{border-right:4px solid #e6a900;background:#fff9e9;padding:12px;border-radius:8px;margin-top:15px}.hidden{display:none!important}label{display:block;font-weight:600;margin:12px 0 5px}input,select{width:100%;max-width:100%;border:1px solid #b9c9dd;border-radius:9px;padding:11px;background:white;color:inherit}.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.tabs{display:flex;gap:8px}.tabs button[aria-pressed=true]{background:#dceafd;border-color:#1659a9;color:#154e90}.line-entry{padding:12px;border:1px solid #d9e4f0;border-radius:10px;margin:10px 0}.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}.day{min-height:74px;padding:7px 2px}.day[aria-pressed=true]{background:#d9eaff;border:2px solid #1659a9}.day small{display:block}.result{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #e3e9f3;text-align:right}th{background:#f3f7fd}footer{padding:28px 0;color:#637184;font-size:.8rem}.actions{display:flex;gap:8px;flex-wrap:wrap}html{scroll-behavior:smooth}body{background:radial-gradient(ellipse at 90% 0,#e8f2ff 0,transparent 36%),#f3f6fb}
-button{transition:background .15s ease,border-color .15s ease,transform .12s ease}
+button{transition:background .15s ease,border-color .15s ease,transform .12s ease}.site-logo{width:54px;height:54px;object-fit:contain;border-radius:12px}.alias-error{border:2px solid #b52232!important;background:#fff6f6!important}
 .primary:not(:disabled):active{transform:scale(.98)}
 .hero{padding:26px;background:linear-gradient(120deg,#e5f1ff,#fff 68%)}.panel{box-shadow:0 6px 25px #163c690b}
 #groupCards .card{background:#fff;display:flex;flex-direction:column;gap:7px}
@@ -153,15 +153,15 @@ input,select{min-height:46px;border-radius:12px}
  .print-sheet:last-child{break-after:auto;page-break-after:auto}
  .print-sheet > h3{font-size:11pt;line-height:1.25;margin:0 0 2mm;border-bottom:1px solid #b4c7de;padding-bottom:1.5mm;break-after:avoid}
  .print-sheet .print-continued{font-size:8pt;color:#394d66}
- .print-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3.3mm;direction:rtl;align-items:start}
+ .print-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2mm;direction:rtl;align-items:start}
  .print-column{min-width:0;break-inside:avoid}
  .print-column table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:9pt;line-height:1.17;direction:rtl}
- .print-column th{font-size:8.2pt;padding:1.6mm 1.6mm;text-align:right;background:#edf3fb!important;border-bottom:1px solid #718cac}
- .print-column td{padding:.85mm 1.6mm;border-bottom:1px solid #e1e6ed;text-align:right}
+ .print-column th{font-size:8.2pt;padding:1.6mm .8mm;text-align:right;background:#edf3fb!important;border-bottom:1px solid #718cac}
+ .print-column td{padding:.85mm .8mm;border-bottom:1px solid #e1e6ed;text-align:right}
  .print-column td:first-child,.print-column th:first-child{width:48%}
  .print-column td:last-child,.print-column th:last-child{width:52%;text-align:center}
  .print-column .clock{font-size:9.1pt;font-weight:700;direction:ltr;unicode-bidi:isolate;white-space:nowrap;font-variant-numeric:tabular-nums}
- .print-column .line-number{font-size:8pt;line-height:1.14;padding:.35mm 1.6mm;white-space:nowrap}
+ .print-column .line-number{font-size:8pt;line-height:1.14;padding:.35mm .8mm;white-space:nowrap}
  .print-column-heading{font-size:8pt;color:#253f5d;font-weight:700;padding:0 0 1mm;margin:0;white-space:nowrap}
  .print-sheet,.print-column,.print-column table{overflow:visible}
  .print-empty{font-size:10pt;padding:6mm;text-align:center;border:1px dashed #b1c0d0}
@@ -177,7 +177,7 @@ input,select{min-height:46px;border-radius:12px}
 <body>
 <div class="wrap">
 <header class="header no-print">
- <div class="logo"><span class="logo-icon" aria-hidden="true">🚌</span><div><h1>לו״ז מייקר <span class="pill">בטא</span></h1><span class="muted small">לוחות זמנים אישיים לתחבורה ציבורית</span></div></div>
+ <div class="logo"><img src="./logo.svg" class="site-logo" alt="" width="54" height="54"><div><h1>לו״ז מייקר <span class="pill">בטא</span></h1><span class="muted small">לוחות זמנים אישיים לתחבורה ציבורית</span></div></div>
  <div class="row"><button id="helpBtn">עזרה</button><a href="https://docs.google.com/forms/d/e/1FAIpQLSfMFmC7esFcy0zpMIzT0kk-CluXSRKBRBIVHNPxKRlUW_YZUA/viewform?usp=dialog" target="_blank" rel="noopener">משוב ↗</a></div>
 </header>
 <div class="notice no-print" id="sourceNotice" role="status">בודק זמינות נתוני תחבורה...</div>
@@ -225,7 +225,7 @@ input,select{min-height:46px;border-radius:12px}
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
 </div>
 <dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. הכלי יזהה אוטומטית לוחות זמנים זהים בימים שונים.</p><p><strong>דוגמאות לשימוש:</strong> הכנת לוח של הקווים לתל אביב לפרסום במקומון, או לוח קווים מהתחנה הקרובה להדפסה ולתלייה על המקרר. המספרים והמסלולים נבחרים מתוך הנתונים העדכניים.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
-<script src="./shes.js"></script>
+<script src="./shes.js"></script><script src="./aliases.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -237,7 +237,7 @@ let catalog=null, editing=null, working=[], selectedGroup=null, chosenDates=[], 
 let cache=new Map(),operatorIcons={};
 const shesEnabled=/(?:^\?|&)shes=1(?:&|$)/.test(String(window.location?.search||""));
 
-let groups=load(),lineTicket=0,routeTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
+let aliasDrafts=new Map(),groups=load(),lineTicket=0,routeTicket=0,lookupTimer=null,addBusy=false,saveBusy=false;
 let lastLineLookup=null; // Avoid resetting visible route cards on input blur/change.
 let closedSuggestionsFor=null;
 function normalizeLine(s){return String(s??"").trim().replace(/\s+/g,"").replace(/[\u200e\u200f]/g,"")}
@@ -668,7 +668,7 @@ async function analyze(){
    if(bySig.has(key))bySig.get(key).dates.push(d.iso);
    else bySig.set(key,{id:bySig.size,dates:[d.iso],rows:d.rows});
   }
-  analyzed=[...bySig.values()];
+  analyzed=[...bySig.values()];aliasDrafts.clear();
   selectedTypes=analyzed.map(x=>x.id);
   renderAnalysis();
   $("analyzeStatus").textContent="החיפוש הושלם: "+analyzed.length+" לוחות שונים.";
@@ -678,16 +678,27 @@ async function analyze(){
  }
 }
 function suggestedAlias(dates){
- const w=dates.map(x=>new Date(x+"T12:00:00").getDay());
- if(w.every(d=>d<=4))return "אמצע שבוע";
- if(w.every(d=>d===5))return "יום שישי";
- if(w.every(d=>d===6))return "מוצ״ש";
- return dates.length===1?dateDisplay(dates[0],calendarView,yearVisibility(timetableDates(analyzed))):"לוח מיוחד";
+ return suggestedHolidayAlias(dates,calendarView,dateDisplay,yearVisibility(timetableDates(analyzed)));
+}
+function validateAliases(){
+ const inputs=[...document.querySelectorAll("#smartResults [data-alias]")];
+ const seen=new Set();let bad=false;
+ for(const el of inputs){
+  const key=normalizeAlias(el.value),duplicate=!key||seen.has(key);
+  el.setCustomValidity(duplicate?(!key?"יש להזין שם":"שם הלוח כבר קיים"):"");
+  el.classList.toggle("alias-error",duplicate);
+  el.setAttribute("aria-invalid",String(duplicate));
+  seen.add(key);bad ||=duplicate;
+ }
+ $("generate").disabled=bad;
+ return !bad;
 }
 function renderAnalysis(){
  $("smartResults").classList.remove("hidden");
- $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map(a=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+safe(dateListDisplay(a.dates,timetableDates(analyzed)))+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input id="alias-'+a.id+'" maxlength="70" value="'+safe(suggestedAlias(a.dates))+'"></div>').join("")+'<p class="muted small">ימים עם אותן נסיעות מאוחדים. כל הבדל בשעת נסיעה יוצר לוח נפרד.</p>';
- $("generate").classList.remove("hidden")
+ const aliases=uniqueAliases(analyzed.map(a=>({id:a.id,alias:aliasDrafts.get(a.id)?.manual?aliasDrafts.get(a.id).value:suggestedAlias(a.dates)})));
+ $("smartResults").innerHTML='<h3 style="margin-top:20px">נמצאו '+analyzed.length+' לוחות זמנים שונים</h3>'+analyzed.map((a,i)=>'<div class="line-entry"><label><input style="width:auto;margin-left:10px" type="checkbox" data-type="'+a.id+'" checked> <strong>'+safe(dateListDisplay(a.dates,timetableDates(analyzed)))+'</strong><span class="muted small"> · '+a.rows.length+' נסיעות</span></label><label for="alias-'+a.id+'">כותרת הלוח</label><input data-alias="'+a.id+'" id="alias-'+a.id+'" maxlength="70" value="'+safe(aliases[i].alias)+'"></div>').join("")+'<p class="muted small">לכל לוח יש שם ייחודי. ימים עם נסיעות זהות מאוחדים.</p>';
+ $("generate").classList.remove("hidden");
+ validateAliases();
 }
 // The first entry keeps its real line number. Repeated numbers use ב, ג, ד...
 // The suffix א is deliberately skipped to avoid confusion with actual route numbers.
@@ -792,6 +803,7 @@ function printTimetableSheets(timetables,legend){
 }
 function createResults(readSelection=true){
  if(readSelection){
+  if(!validateAliases()){document.querySelector("#smartResults input:invalid")?.focus();return}
   selectedTypes=[...document.querySelectorAll("[data-type]:checked")].map(e=>Number(e.dataset.type));
   generated=analyzed.filter(x=>selectedTypes.includes(x.id)).map(x=>({...x,alias:(document.getElementById("alias-"+x.id)?.value||suggestedAlias(x.dates)).trim()}));
  }
@@ -893,6 +905,7 @@ $("selectedLines").onclick=e=>{const b=e.target.closest("[data-remove]");if(b){w
 $("groupCards").onclick=e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;if(d.edit)editGroup(d.edit);else if(d.generate)openGenerator(d.generate);else if(d.delete&&confirm("למחוק את הקבוצה?")){groups=groups.filter(g=>g.id!==d.delete);persist();renderGroups()}};
 $("backGen").onclick=()=>{analysisTicket++;show("home")};
 $("generate").onclick=createResults;
+$("smartResults").addEventListener("input",e=>{if(e.target.matches("[data-alias]")){aliasDrafts.set(Number(e.target.dataset.alias),{value:e.target.value,manual:true});validateAliases()}});
 $("backResults").onclick=()=>show("generator");
 $("homeResults").onclick=()=>show("home");
 $("resultTables").onclick=()=>{};
