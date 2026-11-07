@@ -153,6 +153,10 @@ async function main(){
  assert(html.includes('.print-sheet.print-first-visible'),"First printed page avoids a leading blank");
  assert(!html.includes('.print-sheet{break-inside:avoid;page-break-inside:avoid;break-after:page'),"No trailing forced break creating a blank page");
 
+ const packedShort=await run('printTimetableSheets('+JSON.stringify([{alias:"ראשון",dates:["2026-11-05"],rows:Array.from({length:12},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:i*10}))},{alias:"שני",dates:["2026-11-06"],rows:Array.from({length:14},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:i*10}))},{alias:"שלישי",dates:["2026-11-07"],rows:Array.from({length:5},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:i*10}))}]) +',colorizeLineLegend(makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"}])))');
+ assert.equal((packedShort.match(/class="print-sheet"/g)||[]).length,1,"Three small timetables share a single sheet");
+ assert.equal((packedShort.match(/class="print-block"/g)||[]).length,3,"All three timetable headings appear");
+ assert.equal((packedShort.match(/<tr><td>/g)||[]).length,31,"Combined page retains every departure");
  assert.equal((printableHtml.match(/<tr><td>/g)||[]).length,205,"Every departure printed once");
  const first=printableHtml.indexOf('06:00'),second=printableHtml.indexOf('08:15');
  assert(first>=0&&second>first,"Times remain chronological across columns");
