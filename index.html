@@ -394,6 +394,12 @@ function updateCalendarView(value){
 function timeString(minutes){return String(Math.floor(minutes/60)%24).padStart(2,"0")+":"+String(minutes%60).padStart(2,"0")}
 async function init(){
  try {
+  // Static per-build holiday snapshot: no requests to third-party APIs from visitors.
+  try{
+   const holidays=await fetch("./data/holidays.json",{cache:"no-store"});
+   if(holidays.ok)setHolidaySnapshot(await holidays.json());
+  }catch(e){console.warn("מפת מועדים לא זמינה; משתמש בזיהוי מקומי",e)}
+
   const response=await fetch("./data/index.json",{cache:"no-store"});
   if(!response.ok)throw Error("index unavailable");
   const value=await response.json();
