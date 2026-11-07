@@ -791,8 +791,10 @@ const PRINT_ROWS_PER_COLUMN=29; // Reserve space for the compact legend on EVERY
 // reuse space. Each section reads chronologically down four balanced columns.
 function printTimetableSheets(timetables,legend){
  const allDates=timetableDates(timetables);
- // Conservative ceiling; 3 units reserved per section for headings and spacing.
- const MAX_UNITS=25,MAX_ROWS=88;
+ // Reserve room for the common legend (two entries per row), title and block headings.
+ // Rows retain the original 9pt print font; do not shrink text to fit.
+ const MAX_UNITS=Math.max(18,42-2*Math.ceil(legend.size/2));
+ const MAX_ROWS=4*(MAX_UNITS-3);
  const sections=[];
  for(let i=0;i<timetables.length;i++){
   const item=timetables[i],rows=item.rows;
