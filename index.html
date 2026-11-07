@@ -172,6 +172,15 @@ input,select{min-height:46px;border-radius:12px}
  .legend-entry .operator-brand{margin:1mm 0}
 }
 
+
+@media print{
+ .print-mark{vertical-align:middle;width:19px;height:19px;margin-left:3mm}
+ .print-block{break-inside:avoid;page-break-inside:avoid;margin:0 0 3mm}
+ .print-block>h3{font-size:10.4pt;line-height:1.2;margin:0 0 1.4mm;border-bottom:1px solid #b4c7de;padding-bottom:1mm}
+ .print-block:last-child{margin-bottom:0}
+ .print-sheet{break-before:page!important;page-break-before:always!important}
+ .print-sheet:first-child,.print-sheet.print-first-visible{break-before:auto!important;page-break-before:auto!important}
+}
 </style>
 </head>
 <body>
@@ -778,28 +787,51 @@ function resultLegendHtml(legend){
 // Print-only columns are explicit, so browsers cannot reorder the chronology
 // or break an arbitrary table row across columns. Each column reads downward.
 const PRINT_ROWS_PER_COLUMN=29; // Reserve space for the compact legend on EVERY A4 sheet.
+// Pack independent timetable sections onto A4 pages, reordering sections to
+// reuse space. Each section reads chronologically down four balanced columns.
 function printTimetableSheets(timetables,legend){
- const allDates=timetableDates(timetables),out=[];
- for(let timetableIndex=0;timetableIndex<timetables.length;timetableIndex++){
-  const a=timetables[timetableIndex],rows=a.rows;
-  let cursor=0,sheetNumber=0;
-  do{
-   const capacity=PRINT_ROWS_PER_COLUMN;
-   const pages=[],first=cursor;
-   for(let column=0;column<3&&cursor<rows.length;column++){
-    const section=rows.slice(cursor,cursor+capacity);cursor+=section.length;
-    const firstTime=timeString(section[0].min),lastTime=timeString(section.at(-1).min);
-    const entries=section.map(row=>'<tr><td>'+lineBadge(labeledLine(row,legend),legend.get(legendIdentity(row.line,row.routeId,row.stopId))?.colors)+'</td><td class="clock">'+timeString(row.min)+'</td></tr>').join("");
-    pages.push('<div class="print-column"><p class="print-column-heading">טור '+(column+1)+' · '+firstTime+'–'+lastTime+'</p><table><thead><tr><th>קו</th><th>שעה</th></tr></thead><tbody>'+entries+'</tbody></table></div>');
-   }
-   const title=safe(a.alias)+' — '+safe(dateListDisplay(a.dates,allDates));
-   const continuation=sheetNumber?' <span class="print-continued">(המשך · עמוד '+(sheetNumber+1)+' של לוח זה)</span>':'';
-   out.push('<section class="print-sheet" data-print-result-index="'+timetableIndex+'" data-print-start="'+first+'" dir="rtl"><div class="print-document-title">לו״ז מייקר — '+safe(selectedGroup?.name||"לוחות זמנים")+'</div><div class="print-sheet-legend">'+resultLegendHtml(legend)+'</div><h3>'+title+continuation+'</h3>'+
-    (pages.length?'<div class="print-grid">'+pages.join("")+'</div>':'<div class="print-empty">אין נסיעות ביום זה בתחנות שנבחרו</div>')+'</section>');
-   sheetNumber++;
-  }while(cursor<rows.length);
+ const allDates=timetableDates(timetables);
+ // Conservative ceiling; 3 units reserved per section for headings and spacing.
+ const MAX_UNITS=25,MAX_ROWS=88;
+ const sections=[];
+ for(let i=0;i<timetables.length;i++){
+  const item=timetables[i],rows=item.rows;
+  if(!rows.length){sections.push({index:i,offset:0,rows:[],part:1,total:1,cost:4});continue}
+  const total=Math.ceil(rows.length/MAX_ROWS);
+  for(let part=0;part<total;part++){
+   const chunk=rows.slice(part*MAX_ROWS,(part+1)*MAX_ROWS);
+   sections.push({index:i,offset:part*MAX_ROWS,rows:chunk,part:part+1,total,cost:Math.ceil(chunk.length/4)+3});
+  }
  }
- return out.join("");
+ // Best-fit decreasing: first minimize pages, then consume spare height.
+ sections.sort((a,b)=>b.cost-a.cost||a.index-b.index||a.part-b.part);
+ const pages=[];
+ for(const section of sections){
+  let target=null,room=Infinity;
+  for(const page of pages){const remaining=MAX_UNITS-page.used-section.cost;if(remaining>=0&&remaining<room){target=page;room=remaining}}
+  if(!target){target={used:0,sections:[]};pages.push(target)}
+  target.sections.push(section);target.used+=section.cost;
+ }
+ function sectionHtml(section){
+  const item=timetables[section.index],rows=section.rows;
+  const title=safe(item.alias)+' — '+safe(dateListDisplay(item.dates,allDates))+
+   (section.total>1?' <span class="print-continued">(חלק '+section.part+' מתוך '+section.total+')</span>':'');
+  if(!rows.length)return '<div class="print-block" data-print-result-index="'+section.index+'"><h3>'+title+'</h3><div class="print-empty">אין נסיעות ביום זה</div></div>';
+  const perColumn=Math.ceil(rows.length/4);
+  let columns=[];
+  for(let column=0;column<4;column++){
+   const chunk=rows.slice(column*perColumn,(column+1)*perColumn);
+   if(!chunk.length)continue;
+   const entries=chunk.map(row=>'<tr><td>'+lineBadge(labeledLine(row,legend),legend.get(legendIdentity(row.line,row.routeId,row.stopId))?.colors)+'</td><td class="clock">'+timeString(row.min)+'</td></tr>').join("");
+   columns.push('<div class="print-column"><table><thead><tr><th>קו</th><th>שעה</th></tr></thead><tbody>'+entries+'</tbody></table></div>');
+  }
+  return '<div class="print-block" data-print-result-index="'+section.index+'"><h3>'+title+'</h3><div class="print-grid">'+columns.join("")+'</div></div>';
+ }
+ return pages.map((page,i)=>'<section class="print-sheet" data-print-page="'+i+'" dir="rtl">'+
+  '<div class="print-document-title"><img src="./logo.svg" alt="" width="19" height="19" class="print-mark"> לו״ז מייקר — '+safe(selectedGroup?.name||"לוחות זמנים")+'</div>'+
+  '<div class="print-sheet-legend">'+resultLegendHtml(legend)+'</div>'+
+  page.sections.sort((a,b)=>a.index-b.index||a.part-b.part).map(sectionHtml).join("")+
+  '</section>').join("");
 }
 function createResults(readSelection=true){
  if(readSelection){
@@ -869,9 +901,9 @@ function calculateGeneratedShes(){
   combinedShesForTimetables(generated).map(shesResultHtml).join("");
 }
 function printSelected(index){
- const sheets=[...document.querySelectorAll("#printTables .print-sheet")];
- sheets.forEach(node=>{node.classList.toggle("print-exclude",index!==null&&Number(node.dataset.printResultIndex)!==index);node.classList.remove("print-first-visible")});
- sheets.find(node=>index===null||Number(node.dataset.printResultIndex)===index)?.classList.add("print-first-visible");
+ // Rebuild a compact page layout rather than hide a block inside a mixed page.
+ const legend=colorizeLineLegend(makeLineLegend(selectedGroup.lines));
+ $("printTables").innerHTML=printTimetableSheets(index===null?generated:[generated[index]],legend);
  window.print();
 }
 window.addEventListener("afterprint",()=>{document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude"));document.querySelectorAll(".print-first-visible").forEach(n=>n.classList.remove("print-first-visible"))});
