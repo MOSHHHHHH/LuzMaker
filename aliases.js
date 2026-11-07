@@ -13,6 +13,26 @@ function specialDayName(iso){
  const month=String(p.find(x=>x.type==="month")?.value||"").toLowerCase().replace(/[^a-z0-9]/g,"");
  const is=(...names)=>names.includes(month);
  const weekday=date.getUTCDay();
+ // Modern observances follow Israel's legally shifted dates, not a fixed
+ // Hebrew day number. The official Hebcal snapshot takes priority when present.
+ function observedModern(nominalMonth,nominalDay,shiftFn){
+  for(let delta=-6;delta<=6;delta++){
+   const nominal=new Date(date);nominal.setUTCDate(nominal.getUTCDate()+delta);
+   const p=new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"}).formatToParts(nominal);
+   const m=String(p.find(x=>x.type==="month")?.value||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+   const d=Number(p.find(x=>x.type==="day")?.value);
+   if(nominalMonth.includes(m)&&d===nominalDay){
+    const dayOfWeek=nominal.getUTCDay();
+    const observed=new Date(nominal);observed.setUTCDate(observed.getUTCDate()+shiftFn(dayOfWeek));
+    return observed.toISOString().slice(0,10)===iso;
+   }
+  }
+  return false;
+ }
+ const independenceShift=weekday=>weekday===5?-1:weekday===6?-2:weekday===1?1:0;
+ if(observedModern(["iyar","iyyar"],5,independenceShift))return "יום העצמאות";
+ if(observedModern(["iyar","iyyar"],5,weekday=>independenceShift(weekday)-1))return "יום הזיכרון";
+ if(observedModern(["nisan","nissan"],27,weekday=>weekday===5?-1:weekday===0?1:0))return "יום השואה";
  const shifted=(delta,m,d)=>{const x=new Date(date);x.setUTCDate(x.getUTCDate()+delta);const pp=new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"}).formatToParts(x);return Number(pp.find(z=>z.type==="day")?.value)===d&&namesMonth(pp.find(z=>z.type==="month")?.value)===m};
  function namesMonth(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]/g,"")}
  // Postponed minor fasts are observed on Sunday when their nominal day falls on Shabbat.
