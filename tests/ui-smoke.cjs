@@ -4,6 +4,7 @@ const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/st
 const html=fs.readFileSync("index.html","utf8");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 const shesScript=fs.readFileSync("scripts/shes.js","utf8");
+const aliasesScript=fs.readFileSync("aliases.js","utf8");
 assert(script,"Inline app script missing");
 const els=new Map();
 function el(id){
@@ -48,6 +49,7 @@ const sandbox={
 };
 vm.createContext(sandbox);
 vm.runInContext(shesScript,sandbox,{filename:"shes.js"});
+vm.runInContext(aliasesScript,sandbox,{filename:"aliases.js"});
 vm.runInContext(script,sandbox,{filename:"index.html"});
 async function run(code){return vm.runInContext(code,sandbox)}
 async function main(){
@@ -106,7 +108,7 @@ async function main(){
  // Automatic timetable search starts upon entering the generator.
  assert(!html.includes('id="manualMode"'),"Manual mode was removed");
  assert(!html.includes('id="analyze"'),"Explicit analyze button was removed");
- assert(html.includes('href="./favicon.svg"'),"Favicon linked");
+ assert(html.includes('href="./logo.svg"'),"Updated logo linked");
  for(let i=0;i<100 && (await run('analyzed.length'))<2;i++)await new Promise(resolve=>setTimeout(resolve,10));
  assert.equal((await run('analyzed.length')),2,"Timetables must be detected automatically and grouped by identical schedules");
  assert.equal((await run('analyzed[0].dates.length')),1,"One date has the mocked departure");
@@ -141,14 +143,14 @@ async function main(){
  // Print-only sheets use top-to-bottom columns, then move right-to-left.
  const printableRows=Array.from({length:205},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:360+i*5}));
  const printableHtml=await run('printTimetableSheets([{alias:"דוגמה",dates:["2026-11-05"],rows:'+JSON.stringify(Array.from({length:205},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:360+i*5})))+'}],colorizeLineLegend(makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"}])))');
- assert(printableHtml.includes('print-grid'),"PDF uses the three-column print grid");
- assert(printableHtml.includes('טור 1')&&printableHtml.includes('טור 2')&&printableHtml.includes('טור 3'),"Each column labeled in reading order");
- assert.equal((printableHtml.match(/class="print-sheet"/g)||[]).length,3,"205 rides span exactly 3 print sheets");
+ assert(printableHtml.includes('print-grid'),"PDF uses the four-column print grid");
+ assert(html.includes("repeat(4,minmax(0,1fr))"),"Four printed columns");
+ assert.equal((printableHtml.match(/class="print-sheet"/g)||[]).length,3,"205 rides span three print sheets");
  assert.equal((printableHtml.match(/class="print-sheet-legend"/g)||[]).length,3,"Every printed sheet repeats the legend");
  assert.equal((printableHtml.match(/מקרא קווים ותחנות/g)||[]).length,3,"Every printed sheet has a legend heading");
  assert.equal((printableHtml.match(/class="print-document-title"/g)||[]).length,3,"Every sheet identifies the timetable group");
  assert(html.includes('#printTitle,#resultLegend{display:none!important}'),"No standalone legend/title page");
- assert(html.includes('.print-sheet.print-first-visible'),"Single-timetable print suppresses leading blank page");
+ assert(html.includes('.print-sheet.print-first-visible'),"First printed page avoids a leading blank");
  assert(!html.includes('.print-sheet{break-inside:avoid;page-break-inside:avoid;break-after:page'),"No trailing forced break creating a blank page");
 
  assert.equal((printableHtml.match(/<tr><td>/g)||[]).length,205,"Every departure printed once");
