@@ -145,10 +145,10 @@ async function main(){
  const printableHtml=await run('printTimetableSheets([{alias:"דוגמה",dates:["2026-11-05"],rows:'+JSON.stringify(Array.from({length:205},(_,i)=>({line:"134",routeId:"r1",stopId:"s1",min:360+i*5})))+'}],colorizeLineLegend(makeLineLegend([{number:"134",routeId:"r1",stopId:"s1"}])))');
  assert(printableHtml.includes('print-grid'),"PDF uses the four-column print grid");
  assert(html.includes("repeat(4,minmax(0,1fr))"),"Four printed columns");
- assert.equal((printableHtml.match(/class="print-sheet"/g)||[]).length,3,"205 rides span three print sheets");
- assert.equal((printableHtml.match(/class="print-sheet-legend"/g)||[]).length,3,"Every printed sheet repeats the legend");
- assert.equal((printableHtml.match(/מקרא קווים ותחנות/g)||[]).length,3,"Every printed sheet has a legend heading");
- assert.equal((printableHtml.match(/class="print-document-title"/g)||[]).length,3,"Every sheet identifies the timetable group");
+ assert.equal((printableHtml.match(/class="print-sheet"/g)||[]).length,2,"205 rides fit in two four-column print sheets");
+ assert.equal((printableHtml.match(/class="print-sheet-legend"/g)||[]).length,2,"Every printed sheet repeats the legend");
+ assert.equal((printableHtml.match(/מקרא קווים ותחנות/g)||[]).length,2,"Every printed sheet has a legend heading");
+ assert.equal((printableHtml.match(/class="print-document-title"/g)||[]).length,2,"Every sheet identifies the timetable group");
  assert(html.includes('#printTitle,#resultLegend{display:none!important}'),"No standalone legend/title page");
  assert(html.includes('.print-sheet.print-first-visible'),"First printed page avoids a leading blank");
  assert(!html.includes('.print-sheet{break-inside:avoid;page-break-inside:avoid;break-after:page'),"No trailing forced break creating a blank page");
