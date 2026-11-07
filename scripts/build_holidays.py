@@ -76,7 +76,7 @@ def generate(start, days, destination):
     query = urllib.parse.urlencode({
         "v":"1","cfg":"json","start":start.isoformat(),"end":end.isoformat(),
         "maj":"on","min":"on","mod":"on","mf":"on","i":"on","nx":"off",
-        "ss":"off","s":"off","o":"off","c":"off","lg":"en"
+        "ss":"off","s":"off","o":"off","c":"off","lg":"s"
     })
     request = urllib.request.Request("https://www.hebcal.com/hebcal?"+query,
         headers={"User-Agent":"LuzMaker/1.0 (Hebcal attribution; GitHub Pages static holiday labels)"})
