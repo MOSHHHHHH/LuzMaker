@@ -105,8 +105,11 @@ function suggestedHolidayAlias(dates,calendarView,dateDisplay,visibility){
 }
 function normalizeAlias(name){return String(name||"").trim().replace(/\s+/g," ").toLocaleLowerCase("he")}
 function uniqueAliases(items){
- const used=new Set();
+ // Hand-edited names are immutable. Automatic names must work around them;
+ // duplicate manual names remain untouched so the editor can reject them.
+ const used=new Set(items.filter(item=>item.manual).map(item=>normalizeAlias(item.alias)));
  return items.map(item=>{
+  if(item.manual)return {...item};
   const base=String(item.alias||"").trim()||"לוח";
   let alias=base,n=1;
   while(used.has(normalizeAlias(alias)))alias=base+" ("+(n++)+")";
