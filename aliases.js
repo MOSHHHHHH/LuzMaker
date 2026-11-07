@@ -39,7 +39,7 @@ function specialDayName(iso){
  if(is("kislev")&&day>=25)return "חנוכה";
  if(is("tevet")&&day<=3){
   // The 8th day falls on 2 or 3 Tevet depending on Kislev\u2019s length.
-  const before=new Date(date);before.setUTCDate(before.getUTCDate()-(day+6));
+  const before=new Date(date);before.setUTCDate(before.getUTCDate()-7);
   const previous=new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"}).formatToParts(before);
   const prevDay=Number(previous.find(x=>x.type==="day")?.value);
   if(day<=2||(day===3&&prevDay===25))return "חנוכה";
