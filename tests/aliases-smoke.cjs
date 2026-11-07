@@ -27,14 +27,20 @@ assert.equal(run('specialDayName("2026-04-22")'),"יום העצמאות");
 // Deferred fast: 9 Av 5785 was Saturday; the fast moved to Sunday, Aug 3.
 assert.equal(run('specialDayName("2025-08-03")'),"תשעה באב");
 assert.equal(run('specialDayName("2029-07-22")'),"תשעה באב");
-// Variable Kislev length never creates a ninth day of Chanukah.
+// Each Kislev 25 must start exactly eight calendar days of Hanukkah.
 for(const year of [2024,2025,2026,2027,2028,2029,2030]){
- let count=0;
- for(let d=new Date(Date.UTC(year,0,1,12));d.getUTCFullYear()===year;d.setUTCDate(d.getUTCDate()+1)){
-  if(run('specialDayName('+JSON.stringify(d.toISOString().slice(0,10))+')')==="חנוכה")count++;
+ let first=null;
+ const formatter=new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"});
+ for(let d=new Date(Date.UTC(year,10,1,12));d.getUTCFullYear()===year;d.setUTCDate(d.getUTCDate()+1)){
+  const p=formatter.formatToParts(d);
+  if(p.find(x=>x.type==="month")?.value==="Kislev"&&Number(p.find(x=>x.type==="day")?.value)===25){first=new Date(d);break}
  }
- // Some Gregorian years contain part of two Hanukkah festivals.
- assert(count>=7&&count<=11,year+": unexpected Hanukkah count "+count);
+ assert(first,year+": no Kislev 25");
+ for(let offset=0;offset<=8;offset++){
+  const d=new Date(first);d.setUTCDate(d.getUTCDate()+offset);
+  const val=run('specialDayName('+JSON.stringify(d.toISOString().slice(0,10))+')');
+  assert.equal(val==="חנוכה",offset<8,year+": Hanukkah day "+(offset+1));
+ }
 }
 run('setHolidaySnapshot({events:{"2026-11-09":["סיגד"],"2026-11-10":["מועד ניסיוני"]}})');
 assert.equal(run('specialDayName("2026-11-09")'),"סיגד");
