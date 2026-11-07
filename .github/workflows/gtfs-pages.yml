@@ -5,6 +5,8 @@ on:
     paths:
       - 'index.html'
       - 'favicon.svg'
+      - 'logo.svg'
+      - 'aliases.js'
       - 'scripts/**'
       - 'data/operator-website-fallbacks.json'
       - 'tests/**'
@@ -49,17 +51,19 @@ jobs:
           Path("/tmp/lzm-maker-ui.js").write_text(scripts[0], encoding="utf-8")
           PY
           node --check /tmp/lzm-maker-ui.js
+          node --check aliases.js
       - name: UI and SHES regression smoke tests
         run: |
           node tests/ui-smoke.cjs
           node tests/shes-smoke.cjs
+          node tests/aliases-smoke.cjs
       - name: Build schedules from official daily GTFS
         run: python scripts/build_gtfs.py --output _site
       - name: Cache official operator-site favicons for offline printing
         run: python scripts/fetch_operator_favicons.py
       - name: Include the website
         run: |
-          cp index.html favicon.svg _site/
+          cp index.html favicon.svg logo.svg aliases.js _site/
           cp scripts/shes.js _site/shes.js
           touch _site/.nojekyll
           python - <<'PY'
@@ -70,6 +74,8 @@ jobs:
           assert len(data['lines']) >= 20, 'Generated dataset is incomplete'
           assert Path('_site/index.html').stat().st_size > 1000
           assert Path('_site/favicon.svg').exists()
+          assert Path('_site/logo.svg').exists()
+          assert Path('_site/aliases.js').exists()
           assert Path('_site/shes.js').exists()
           print('Validated', len(data['lines']), 'available bus numbers')
           PY
