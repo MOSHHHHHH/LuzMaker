@@ -46,4 +46,9 @@ run('setHolidaySnapshot({events:{"2026-11-09":["סיגד"],"2026-11-10":["מוע
 assert.equal(run('specialDayName("2026-11-09")'),"סיגד");
 assert.equal(run('specialDayName("2026-11-10")'),"מועד ניסיוני","CI holiday snapshot takes precedence");
 run('setHolidaySnapshot({events:{}})');
+const protectedManual=run('uniqueAliases([{alias:"ערב פסח",manual:true},{alias:"ערב פסח"},{alias:"ערב פסח",manual:true}]).map(x=>x.alias)');
+assert.deepEqual([...protectedManual],["ערב פסח","ערב פסח (1)","ערב פסח"],"Manual duplicate remains invalid rather than being silently renamed");
+assert.equal(run('specialDayName("2026-09-11")'),"ערב ראש השנה");
+assert.equal(run('specialDayName("2026-11-09")'),"סיגד");
+assert.equal(run('specialDayName("2026-01-01")'),"ראש השנה האזרחית");
 console.log("PASS: Hebrew events, civil-day labeling, deterministic collision suffixes");
