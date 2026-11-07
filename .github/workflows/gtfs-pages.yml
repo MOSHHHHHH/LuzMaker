@@ -59,6 +59,22 @@ jobs:
           node tests/aliases-smoke.cjs
       - name: Build schedules from official daily GTFS
         run: python scripts/build_gtfs.py --output _site
+      - name: Cache Israeli holiday labels from Hebcal (non-critical)
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          out=Path("_site/data/holidays.json")
+          start=json.loads(Path("_site/data/index.json").read_text(encoding="utf-8"))["start"]
+          command=[sys.executable,"scripts/build_holidays.py","--start",start,"--days","20","--output",str(out)]
+          try:
+              subprocess.run(command,check=True,timeout=40)
+          except Exception as exc:
+              print("WARNING: Hebcal snapshot unavailable; builtin Hebrew-calendar fallback remains active:",exc)
+              out.write_text(json.dumps({"source":"local-fallback","events":{}},ensure_ascii=False),encoding="utf-8")
+          PY
       - name: Cache official operator-site favicons for offline printing
         run: python scripts/fetch_operator_favicons.py
       - name: Include the website
@@ -76,6 +92,7 @@ jobs:
           assert Path('_site/favicon.svg').exists()
           assert Path('_site/logo.svg').exists()
           assert Path('_site/aliases.js').exists()
+          assert Path('_site/data/holidays.json').exists()
           assert Path('_site/shes.js').exists()
           print('Validated', len(data['lines']), 'available bus numbers')
           PY
