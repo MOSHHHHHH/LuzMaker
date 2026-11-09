@@ -9,7 +9,7 @@ function verify(sizes,cap){
  const pages=pack(sizes,cap);
  assert(pages.every(page=>page.used<=cap),"No page may exceed print capacity");
  assert.equal(pages.reduce((n,p)=>n+p.sections.length,0),sizes.length,"No section lost");
- const indices=pages.flatMap(p=>p.sections.map(s=>s.index)).sort((a,b)=>a-b);
+ const indices=[...pages].flatMap(p=>p.sections.map(s=>s.index)).sort((a,b)=>a-b);
  assert.deepEqual(indices,Array.from({length:sizes.length},(_,i)=>i),"Every section printed exactly once");
  return pages.length;
 }
