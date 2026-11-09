@@ -234,7 +234,7 @@ input,select{min-height:46px;border-radius:12px}
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
 </div>
 <dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. הכלי יזהה אוטומטית לוחות זמנים זהים בימים שונים.</p><p><strong>דוגמאות לשימוש:</strong> הכנת לוח של הקווים לתל אביב לפרסום במקומון, או לוח קווים מהתחנה הקרובה להדפסה ולתלייה על המקרר. המספרים והמסלולים נבחרים מתוך הנתונים העדכניים.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
-<script src="./shes.js"></script><script src="./aliases.js"></script>
+<script src="./shes.js"></script><script src="./aliases.js"></script><script src="./packing.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -811,15 +811,8 @@ function printTimetableSheets(timetables,legend){
    sections.push({index:i,offset:part*MAX_ROWS,rows:chunk,part:part+1,total,cost:Math.ceil(chunk.length/4)+3});
   }
  }
- // Best-fit decreasing: first minimize pages, then consume spare height.
- sections.sort((a,b)=>b.cost-a.cost||a.index-b.index||a.part-b.part);
- const pages=[];
- for(const section of sections){
-  let target=null,room=Infinity;
-  for(const page of pages){const remaining=MAX_UNITS-page.used-section.cost;if(remaining>=0&&remaining<room){target=page;room=remaining}}
-  if(!target){target={used:0,sections:[]};pages.push(target)}
-  target.sections.push(section);target.used+=section.cost;
- }
+ // Find the minimum number of pages exactly for small cases, with a bounded fallback.
+ const pages=packPrintSections(sections,MAX_UNITS);
  function sectionHtml(section){
   const item=timetables[section.index],rows=section.rows;
   const title=safe(item.alias)+' — '+safe(dateListDisplay(item.dates,allDates))+
