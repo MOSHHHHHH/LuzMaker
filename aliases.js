@@ -97,6 +97,10 @@ function specialDayName(iso){
 function suggestedHolidayAlias(dates,calendarView,dateDisplay,visibility){
  const holidays=dates.map(specialDayName);
  if(holidays.length&&holidays.every(h=>h&&h===holidays[0]))return holidays[0];
+ // A mixed holiday/regular timetable must not be misleadingly called "weekday".
+ // Show its actual date instead; it can still be manually named by the user.
+ const first=[...dates].sort()[0];
+ if(holidays.some(Boolean))return first?dateDisplay(first,calendarView,visibility):"לוח מיוחד";
  const w=dates.map(x=>new Date(x+"T12:00:00Z").getUTCDay());
  if(w.length&&w.every(d=>d<=4))return "אמצע שבוע";
  if(w.length&&w.every(d=>d===5))return "יום שישי";
