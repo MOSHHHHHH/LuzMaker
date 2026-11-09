@@ -49,6 +49,8 @@ run('setHolidaySnapshot({events:{}})');
 const protectedManual=run('uniqueAliases([{alias:"ערב פסח",manual:true},{alias:"ערב פסח"},{alias:"ערב פסח",manual:true}]).map(x=>x.alias)');
 assert.deepEqual([...protectedManual],["ערב פסח","ערב פסח (1)","ערב פסח"],"Manual duplicate remains invalid rather than being silently renamed");
 assert.equal(run('specialDayName("2026-09-11")'),"ערב ראש השנה");
+assert.equal(run('suggestedHolidayAlias(["2026-09-10","2026-09-11"],"gregorian",x=>x,{})'),"2026-09-10","Mixed normal and holiday service falls back to date");
+
 assert.equal(run('specialDayName("2026-11-09")'),"סיגד");
 assert.equal(run('specialDayName("2026-01-01")'),"ראש השנה האזרחית");
 console.log("PASS: Hebrew events, civil-day labeling, deterministic collision suffixes");
