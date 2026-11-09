@@ -94,18 +94,33 @@ function specialDayName(iso){
  if(mm==="12"&&dd==="25")return "חג המולד";
  return null;
 }
+// A GTFS-identical timetable may span regular days and multiple holidays.
+// Preserve a meaningful weekday label and explicitly name distinct holidays.
 function suggestedHolidayAlias(dates,calendarView,dateDisplay,visibility){
- const holidays=dates.map(specialDayName);
- if(holidays.length&&holidays.every(h=>h&&h===holidays[0]))return holidays[0];
- // A mixed holiday/regular timetable must not be misleadingly called "weekday".
- // Show its actual date instead; it can still be manually named by the user.
- const first=[...dates].sort()[0];
- if(holidays.some(Boolean))return first?dateDisplay(first,calendarView,visibility):"לוח מיוחד";
- const w=dates.map(x=>new Date(x+"T12:00:00Z").getUTCDay());
- if(w.length&&w.every(d=>d<=4))return "אמצע שבוע";
- if(w.length&&w.every(d=>d===5))return "יום שישי";
- if(w.length&&w.every(d=>d===6))return "מוצ״ש";
- return dates.length?dateDisplay([...dates].sort()[0],calendarView,visibility):"לוח מיוחד";
+ const uniqueDates=[...new Set(dates)].sort();
+ if(!uniqueDates.length)return "לוח מיוחד";
+ const events=uniqueDates.map(iso=>({iso,holiday:specialDayName(iso)}));
+ const names=[...new Set(events.map(e=>e.holiday).filter(Boolean))];
+ if(names.length===1&&events.every(e=>e.holiday===names[0]))return names[0];
+ const regular=events.filter(e=>!e.holiday);
+ const weekdays=regular.map(e=>new Date(e.iso+"T12:00:00Z").getUTCDay());
+ const all=check=>weekdays.length&&weekdays.every(check);
+ const base=all(d=>d<=4)?"אמצע שבוע":
+            all(d=>d===5)?"יום שישי":
+            all(d=>d===6)?"מוצ״ש":
+            (regular.length?dateDisplay(regular[0].iso,calendarView,visibility):"");
+ if(!names.length)return base||dateDisplay(uniqueDates[0],calendarView,visibility);
+ // For two or more holidays, display ALL distinct names if they fit into
+ // the editor's 70-character limit; never silently mislabel a holiday.
+ const joinNames=arr=>arr.length===1?arr[0]:arr.slice(0,-1).join(", ")+" ו־"+arr.at(-1);
+ const heading=base||"מועדים מיוחדים";
+ let output=heading+" (כולל "+joinNames(names)+")";
+ if(output.length<=70)return output;
+ // Summarize exceptionally long lists, retaining the first named event.
+ const first=names[0],count=names.length-1;
+ output=heading+" (כולל "+first+(count?" ועוד "+count+" מועדים":"")+")";
+ if(output.length<=70)return output;
+ return "לוח משותף (כולל "+names.length+" מועדים)";
 }
 function normalizeAlias(name){return String(name||"").trim().replace(/\s+/g," ").toLocaleLowerCase("he")}
 function uniqueAliases(items){
