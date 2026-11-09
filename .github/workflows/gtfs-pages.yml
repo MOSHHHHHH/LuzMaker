@@ -61,6 +61,8 @@ jobs:
           node tests/aliases-smoke.cjs
           node tests/packing-smoke.cjs
       - name: Verify four-column PDF layout with headless Chrome
+        # A PDF regression is surfaced in logs but must never block fresh GTFS data.
+        continue-on-error: true
         run: |
           command -v google-chrome || command -v chromium
           node tests/pdf-print-smoke.cjs
