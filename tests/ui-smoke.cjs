@@ -5,6 +5,7 @@ const html=fs.readFileSync("index.html","utf8");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 const shesScript=fs.readFileSync("scripts/shes.js","utf8");
 const aliasesScript=fs.readFileSync("aliases.js","utf8");
+const packingScript=fs.readFileSync("packing.js","utf8");
 assert(script,"Inline app script missing");
 const els=new Map();
 function el(id){
@@ -50,6 +51,7 @@ const sandbox={
 vm.createContext(sandbox);
 vm.runInContext(shesScript,sandbox,{filename:"shes.js"});
 vm.runInContext(aliasesScript,sandbox,{filename:"aliases.js"});
+vm.runInContext(packingScript,sandbox,{filename:"packing.js"});
 vm.runInContext(script,sandbox,{filename:"index.html"});
 async function run(code){return vm.runInContext(code,sandbox)}
 async function main(){
