@@ -60,6 +60,10 @@ jobs:
           node tests/shes-smoke.cjs
           node tests/aliases-smoke.cjs
           node tests/packing-smoke.cjs
+      - name: Verify four-column PDF layout with headless Chrome
+        run: |
+          command -v google-chrome || command -v chromium
+          node tests/pdf-print-smoke.cjs
       - name: Build schedules from official daily GTFS
         run: python scripts/build_gtfs.py --output _site
       - name: Cache Israeli holiday labels from Hebcal (non-critical)
