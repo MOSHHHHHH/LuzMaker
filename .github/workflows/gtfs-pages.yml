@@ -7,6 +7,7 @@ on:
       - 'favicon.svg'
       - 'logo.svg'
       - 'aliases.js'
+      - 'packing.js'
       - 'scripts/**'
       - 'data/operator-website-fallbacks.json'
       - 'tests/**'
@@ -52,11 +53,13 @@ jobs:
           PY
           node --check /tmp/lzm-maker-ui.js
           node --check aliases.js
+          node --check packing.js
       - name: UI and SHES regression smoke tests
         run: |
           node tests/ui-smoke.cjs
           node tests/shes-smoke.cjs
           node tests/aliases-smoke.cjs
+          node tests/packing-smoke.cjs
       - name: Build schedules from official daily GTFS
         run: python scripts/build_gtfs.py --output _site
       - name: Cache Israeli holiday labels from Hebcal (non-critical)
@@ -79,7 +82,7 @@ jobs:
         run: python scripts/fetch_operator_favicons.py
       - name: Include the website
         run: |
-          cp index.html favicon.svg logo.svg aliases.js _site/
+          cp index.html favicon.svg logo.svg aliases.js packing.js _site/
           cp scripts/shes.js _site/shes.js
           touch _site/.nojekyll
           python - <<'PY'
@@ -92,6 +95,7 @@ jobs:
           assert Path('_site/favicon.svg').exists()
           assert Path('_site/logo.svg').exists()
           assert Path('_site/aliases.js').exists()
+          assert Path('_site/packing.js').exists()
           assert Path('_site/data/holidays.json').exists()
           assert Path('_site/shes.js').exists()
           print('Validated', len(data['lines']), 'available bus numbers')
