@@ -1,0 +1,24 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>מזהה שינויים — לו״ז מייקר</title><style>body{font-family:system-ui,Arial;background:#f3f6fb;color:#172b4b;margin:0}.wrap{max-width:850px;margin:auto;padding:24px}.panel{background:white;border:1px solid #dbe5f3;border-radius:18px;padding:24px;margin:18px 0}a{color:#155dc1}input,button{font:inherit;padding:12px;border:1px solid #b9c9dd;border-radius:9px}input{width:100%;box-sizing:border-box}button{background:#155dc1;color:white;cursor:pointer}.event{padding:16px;border-bottom:1px solid #dbe5f3}.muted{color:#5b6d80}.new{color:#087d52;font-weight:bold}.removed{color:#b52232;font-weight:bold}</style></head><body><main class="wrap"><a href="./index.html">חזרה ללו״ז מייקר</a><section class="panel"><h1>מזהה שינויים בתחנות</h1><p class="muted">מידע על שינויים שזוהו בפרסומי משרד התחבורה. המערכת בשלבי הקמה.</p><label for="station">מספר תחנה</label><input id="station" inputmode="numeric" placeholder="הקלד מספר תחנה"><p><button id="search">הצג שינויים</button></p><div id="results" role="status" aria-live="polite"></div></section></main><script>
+const results=document.getElementById('results');
+document.getElementById('search').onclick=async()=>{
+ const code=document.getElementById('station').value.trim();
+ if(!/^\\d{1,10}$/.test(code)){results.textContent='יש להזין מספר תחנה תקין';return}
+ results.textContent='טוען...';
+ try{
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code));
+  const name=Array.from(new Uint8Array(digest)).map(n=>n.toString(16).padStart(2,'0')).join('').slice(0,20);
+  const response=await fetch('./data/changes/stations/'+name+'.json',{cache:'no-store'});
+  if(!response.ok){results.textContent='אין שינויים מתועדים בתחנה זו, או שהנתונים טרם פורסמו.';return}
+  const data=await response.json();results.replaceChildren();
+  for(const change of data.changes||[]){
+   const item=document.createElement('article');item.className='event';
+   const label={added:'הקו נוסף',removed:'הקו הוסר',route_changed:'המסלול השתנה',schedule_changed:'לוח הזמנים השתנה'}[change.type]||'שינוי';
+   const title=document.createElement('h2');title.textContent='קו '+change.line.split('|')[1]+' — '+label;item.append(title);
+   const date=document.createElement('p');date.textContent='תאריך השירות: '+change.date;item.append(date);
+   if(change.routes){const button=document.createElement('button');button.textContent='הצג מסלול חדש';const details=document.createElement('div');details.hidden=true;button.onclick=()=>{details.hidden=!details.hidden};for(const route of change.routes){const list=document.createElement('ol');for(const stop of route){const li=document.createElement('li');li.textContent=stop[1]+' ('+stop[0]+')';if(change.addedStops.includes(stop[0])){li.className='new';li.textContent+=' — תחנה חדשה'}list.append(li)}details.append(list)}if(change.removedStops.length){const p=document.createElement('p');p.className='removed';p.textContent='תחנות שהוסרו: '+change.removedStops.join(', ');details.append(p)}item.append(button,details)}
+   results.append(item)
+  }
+  if(!data.changes?.length)results.textContent='לא נמצאו שינויים';
+ }catch(e){results.textContent='לא ניתן לטעון את הנתונים כרגע'}
+};
+</script></body></html>
