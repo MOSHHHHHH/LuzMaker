@@ -14,7 +14,7 @@ document.getElementById('search').onclick=async()=>{
    const item=document.createElement('article');item.className='event';
    const label={added:'הקו נוסף',removed:'הקו הוסר',route_changed:'המסלול השתנה',schedule_changed:'לוח הזמנים השתנה'}[change.type]||'שינוי';
    const title=document.createElement('h2');title.textContent='קו '+change.line.split('|')[1]+' — '+label;item.append(title);
-   const date=document.createElement('p');date.textContent='תאריך השירות: '+change.date;item.append(date);
+   const date=document.createElement('p');date.textContent='תאריך תחולה: '+change.date+(change.detectedAt?' · זוהה במאגר: '+new Date(change.detectedAt).toLocaleDateString('he-IL'):'');item.append(date);
    if(change.routes){const button=document.createElement('button');button.textContent='הצג מסלול חדש';const details=document.createElement('div');details.hidden=true;button.onclick=()=>{details.hidden=!details.hidden};for(const route of change.routes){const list=document.createElement('ol');for(const stop of route){const li=document.createElement('li');li.textContent=stop[1]+' ('+stop[0]+')';if(change.addedStops.includes(stop[0])){li.className='new';li.textContent+=' — תחנה חדשה'}list.append(li)}details.append(list)}if(change.removedStops.length){const p=document.createElement('p');p.className='removed';p.textContent='תחנות שהוסרו: '+change.removedStops.join(', ');details.append(p)}item.append(button,details)}
    results.append(item)
   }
