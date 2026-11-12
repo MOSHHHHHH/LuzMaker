@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'changes.html'
       - 'favicon.svg'
       - 'logo.svg'
       - 'aliases.js'
@@ -88,7 +89,15 @@ jobs:
         run: python scripts/fetch_operator_favicons.py
       - name: Include the website
         run: |
-          cp index.html favicon.svg logo.svg aliases.js packing.js _site/
+          cp index.html changes.html favicon.svg logo.svg aliases.js packing.js _site/
+          mkdir -p _site/data/changes
+          git fetch origin changes-history:refs/remotes/origin/changes-history || true
+          if git cat-file -e origin/changes-history:changes/index.json 2>/dev/null; then
+            git archive origin/changes-history changes | tar -x -C /tmp
+            cp -R /tmp/changes/. _site/data/changes/
+          else
+            echo '{"status":"awaiting-first-snapshot","stations":0}' > _site/data/changes/index.json
+          fi
           cp scripts/shes.js _site/shes.js
           touch _site/.nojekyll
           python - <<'PY'
@@ -98,6 +107,8 @@ jobs:
           data = json.loads(p.read_text(encoding='utf-8'))
           assert len(data['lines']) >= 20, 'Generated dataset is incomplete'
           assert Path('_site/index.html').stat().st_size > 1000
+          assert Path('_site/changes.html').exists()
+          assert Path('_site/data/changes/index.json').exists()
           assert Path('_site/favicon.svg').exists()
           assert Path('_site/logo.svg').exists()
           assert Path('_site/aliases.js').exists()
