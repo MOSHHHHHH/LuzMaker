@@ -10,6 +10,8 @@ import hashlib
 import io
 import json
 import zipfile
+from zoneinfo import ZoneInfo
+from datetime import datetime
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
@@ -76,7 +78,7 @@ def compare(previous, current, day):
     for station in set(old)|set(new):
         before=old.get(station,{})
         after=new.get(station,{})
-        for line in set(before)|set(after):
+        for line in sorted(set(before)|set(after)):
             a,b=before.get(line),after.get(line)
             if not a: kind="added"
             elif not b: kind="removed"
@@ -100,11 +102,12 @@ def main():
     p.add_argument("--zip",type=Path,required=True)
     p.add_argument("--state",type=Path,required=True)
     p.add_argument("--output",type=Path,required=True)
-    p.add_argument("--today",type=date.fromisoformat,default=date.today())
+    p.add_argument("--today",type=date.fromisoformat,default=datetime.now(ZoneInfo("Asia/Jerusalem")).date())
     p.add_argument("--end",type=date.fromisoformat,required=True)
     args=p.parse_args()
     start=args.today-timedelta(days=30)
     days=[start+timedelta(days=i) for i in range((args.end-start).days+1)]
+    if not days: raise ValueError("GTFS horizon ends before rolling window")
     if len(days)>400: raise ValueError("Unreasonable GTFS horizon")
     fresh=snapshot(args.zip,days)
     previous=json.loads(args.state.read_text()) if args.state.exists() else {}
