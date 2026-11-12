@@ -46,7 +46,8 @@ jobs:
                                   d=date(int(raw[:4]),int(raw[4:6]),int(raw[6:8]))
                                   if d>=date.today(): maximum=max(maximum,d)
                               except ValueError: pass
-          maximum=min(maximum,date.today()+timedelta(days=90))
+          if maximum>date.today()+timedelta(days=90):
+              raise RuntimeError("GTFS horizon exceeds 90 days; inspect feed before truncating")
           if maximum < date.today(): raise RuntimeError("GTFS has no current or future dates")
           subprocess.run([sys.executable,"scripts/build_changes.py","--zip","/tmp/gtfs.zip","--state","/tmp/lzm-change-state/state.json","--output","/tmp/changes","--end",maximum.isoformat()],check=True)
           PY
@@ -60,9 +61,19 @@ jobs:
           mkdir -p changes
           cp -R /tmp/changes/. changes/
           git add state.json state.events.json changes/
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          state=json.loads(Path("state.json").read_text())
+          index=json.loads(Path("changes/index.json").read_text())
+          assert state and index["start"]<=index["end"]
+          assert index["stations"] == len(list(Path("changes/stations").glob("*.json")))
+          print("Validated",len(state),"service days and",index["stations"],"stations with changes")
+          PY
           git commit -qm 'Update rolling station change snapshots'
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           git push --force origin HEAD:changes-history
+          echo "History snapshot published to changes-history"
       - name: Upload results for review
         uses: actions/upload-artifact@v4
         with:
