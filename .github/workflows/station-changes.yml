@@ -33,7 +33,7 @@ jobs:
           from datetime import date,timedelta
           url="https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip"
           urllib.request.urlretrieve(url,"/tmp/gtfs.zip")
-          maximum=date.today()+timedelta(days=45)
+          maximum=date.today()
           with zipfile.ZipFile("/tmp/gtfs.zip") as z:
               for filename,field in [("calendar.txt","end_date"),("calendar_dates.txt","date")]:
                   names=[n for n in z.namelist() if n.endswith(filename)]
@@ -47,6 +47,7 @@ jobs:
                                   if d>=date.today(): maximum=max(maximum,d)
                               except ValueError: pass
           maximum=min(maximum,date.today()+timedelta(days=90))
+          if maximum < date.today(): raise RuntimeError("GTFS has no current or future dates")
           subprocess.run([sys.executable,"scripts/build_changes.py","--zip","/tmp/gtfs.zip","--state","/tmp/lzm-change-state/state.json","--output","/tmp/changes","--end",maximum.isoformat()],check=True)
           PY
       - name: Persist snapshot and event history
@@ -56,7 +57,9 @@ jobs:
           git config user.name github-actions
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git checkout -qb changes-history
-          git add state.json state.events.json
+          mkdir -p changes
+          cp -R /tmp/changes/. changes/
+          git add state.json state.events.json changes/
           git commit -qm 'Update rolling station change snapshots'
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           git push --force origin HEAD:changes-history
