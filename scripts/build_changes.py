@@ -108,12 +108,26 @@ def main():
     fresh=snapshot(args.zip,days)
     previous=json.loads(args.state.read_text()) if args.state.exists() else {}
     changes=defaultdict(list)
+    event_path=args.state.with_suffix(".events.json")
+    saved_events=json.loads(event_path.read_text()) if event_path.exists() else {}
+    for station,events in saved_events.items():
+        for event in events:
+            if start.isoformat() <= event["date"] <= args.end.isoformat():
+                changes[station].append(event)
     for day in fresh:
         if day not in previous: continue  # First observation is not a change.
         for station,events in compare(previous,fresh,day).items():
-            changes[station].extend(events)
+            # Revisions supersede earlier observations for the same line and service day.
+            for event in events:
+                changes[station]=[e for e in changes[station] if not (e["date"]==day and e["line"]==event["line"])]
+                changes[station].append(event)
+    changes={station:sorted(events,key=lambda e:(e["date"],e["line"])) for station,events in changes.items() if events}
+    event_path.parent.mkdir(parents=True,exist_ok=True)
+    event_path.write_text(json.dumps(changes,ensure_ascii=False,separators=(",",":")))
     args.output.mkdir(parents=True,exist_ok=True)
-    (args.output/"stations").mkdir(exist_ok=True)
+    station_dir=args.output/"stations"
+    station_dir.mkdir(exist_ok=True)
+    for old_file in station_dir.glob("*.json"): old_file.unlink()
     for station,events in changes.items():
         (args.output/"stations"/(hashlib.sha256(station.encode()).hexdigest()[:20]+".json")).write_text(json.dumps({"station":station,"changes":events},ensure_ascii=False,separators=(",",":")))
     (args.output/"index.json").write_text(json.dumps({"start":start.isoformat(),"end":args.end.isoformat(),"stations":len(changes)},ensure_ascii=False))
