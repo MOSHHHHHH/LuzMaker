@@ -23,6 +23,7 @@ def records(z, name):
 
 def active_services(z, days):
     masks = defaultdict(set)
+    valid_days = {d.isoformat() for d in days}
     weekdays = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
     for row in records(z,"calendar.txt"):
         for d in days:
@@ -32,7 +33,7 @@ def active_services(z, days):
         day = row["date"]
         try: key = date(int(day[:4]),int(day[4:6]),int(day[6:8])).isoformat()
         except ValueError: continue
-        if key not in masks and key not in {d.isoformat() for d in days}: continue
+        if key not in valid_days: continue
         if row["exception_type"] == "1": masks[key].add(row["service_id"])
         if row["exception_type"] == "2": masks[key].discard(row["service_id"])
     return masks
@@ -79,7 +80,7 @@ def compare(previous, current, day):
             a,b=before.get(line),after.get(line)
             if not a: kind="added"
             elif not b: kind="removed"
-            elif a["routes"] != b["routes"]: kind="route_changed"
+            elif set(a["routes"]) != set(b["routes"]): kind="route_changed"
             elif a["departures"] != b["departures"]: kind="schedule_changed"
             else: continue
             item={"date":day,"line":line,"type":kind}
