@@ -118,11 +118,13 @@ def main():
         for event in events:
             if start.isoformat() <= event["date"] <= args.end.isoformat():
                 changes[station].append(event)
+    observed_at=datetime.now(ZoneInfo("Asia/Jerusalem")).isoformat(timespec="seconds")
     for day in fresh:
         if day not in previous: continue  # First observation is not a change.
         for station,events in compare(previous,fresh,day).items():
             # Revisions supersede earlier observations for the same line and service day.
             for event in events:
+                event["detectedAt"]=observed_at
                 changes[station]=[e for e in changes[station] if not (e["date"]==day and e["line"]==event["line"])]
                 changes[station].append(event)
     changes={station:sorted(events,key=lambda e:(e["date"],e["line"])) for station,events in changes.items() if events}
@@ -134,7 +136,7 @@ def main():
     for old_file in station_dir.glob("*.json"): old_file.unlink()
     for station,events in changes.items():
         (args.output/"stations"/(hashlib.sha256(station.encode()).hexdigest()[:20]+".json")).write_text(json.dumps({"station":station,"changes":events},ensure_ascii=False,separators=(",",":")))
-    (args.output/"index.json").write_text(json.dumps({"start":start.isoformat(),"end":args.end.isoformat(),"stations":len(changes)},ensure_ascii=False))
+    (args.output/"index.json").write_text(json.dumps({"start":start.isoformat(),"end":args.end.isoformat(),"stations":len(changes),"updated":observed_at},ensure_ascii=False))
     args.state.parent.mkdir(parents=True,exist_ok=True)
     args.state.write_text(json.dumps(fresh,ensure_ascii=False,separators=(",",":")))
 if __name__=="__main__": main()
