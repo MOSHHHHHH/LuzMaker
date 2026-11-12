@@ -51,6 +51,10 @@ def snapshot(zip_path, days):
             if r.get("trip_id") in trips:
                 times[r["trip_id"]].append((int(r["stop_sequence"]),r["stop_id"],r.get("departure_time") or r.get("arrival_time") or ""))
         result = {d.isoformat():defaultdict(lambda:defaultdict(lambda:{"routes":{}, "departures":[]})) for d in days}
+        services_by_id = defaultdict(list)
+        for service_day,enabled in services.items():
+            for service_id in enabled:
+                services_by_id[service_id].append(service_day)
         for tid,trip in trips.items():
             seq = sorted(times.get(tid,[]))
             if not seq: continue
@@ -60,14 +64,14 @@ def snapshot(zip_path, days):
             direction = trip.get("direction_id","")
             identity = "|".join((agency,line,direction))
             stop_ids = [s for _,s,_ in seq]
+            route_stops = [[stops[s][0],stops[s][1]] for s in stop_ids if s in stops]
             route_hash = hashlib.sha256(json.dumps(stop_ids).encode()).hexdigest()[:16]
-            for day,enabled in services.items():
-                if trip.get("service_id") not in enabled: continue
+            for day in services_by_id.get(trip.get("service_id"), ()):
                 for _,sid,clock in seq:
                     if sid not in stops: continue
                     code,name = stops[sid]
                     entry = result[day][code][identity]
-                    entry["routes"][route_hash] = [[stops[s][0],stops[s][1]] for s in stop_ids if s in stops]
+                    entry["routes"][route_hash] = route_stops
                     entry["departures"].append(clock)
         return {day:{station:{line:{"routes":v["routes"],"departures":sorted(v["departures"])} for line,v in lines.items()} for station,lines in stations.items()} for day,stations in result.items()}
 
