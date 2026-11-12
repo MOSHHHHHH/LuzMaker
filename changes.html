@@ -2,7 +2,7 @@
 const results=document.getElementById('results');
 document.getElementById('search').onclick=async()=>{
  const code=document.getElementById('station').value.trim();
- if(!/^\\d{1,10}$/.test(code)){results.textContent='יש להזין מספר תחנה תקין';return}
+ if(!/^\d{1,10}$/.test(code)){results.textContent='יש להזין מספר תחנה תקין';return}
  results.textContent='טוען...';
  try{
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code));
