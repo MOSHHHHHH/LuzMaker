@@ -1,0 +1,68 @@
+name: Build station change history
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 7 * * *'
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: station-change-history
+  cancel-in-progress: false
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore previous state
+        run: |
+          mkdir -p /tmp/lzm-change-state
+          git fetch origin changes-history:refs/remotes/origin/changes-history || true
+          if git show origin/changes-history:state.json > /tmp/lzm-change-state/state.json 2>/dev/null; then
+            git show origin/changes-history:state.events.json > /tmp/lzm-change-state/state.events.json 2>/dev/null || true
+          fi
+      - name: Download and process official GTFS
+        run: |
+          python - <<'PY'
+          import urllib.request,zipfile,csv,io,subprocess,sys
+          from datetime import date,timedelta
+          url="https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip"
+          urllib.request.urlretrieve(url,"/tmp/gtfs.zip")
+          maximum=date.today()+timedelta(days=45)
+          with zipfile.ZipFile("/tmp/gtfs.zip") as z:
+              for filename,field in [("calendar.txt","end_date"),("calendar_dates.txt","date")]:
+                  names=[n for n in z.namelist() if n.endswith(filename)]
+                  if not names: continue
+                  with z.open(names[0]) as f:
+                      for row in csv.DictReader(io.TextIOWrapper(f,encoding="utf-8-sig")):
+                          raw=row.get(field,"")
+                          if len(raw)==8 and raw.isdigit():
+                              try:
+                                  d=date(int(raw[:4]),int(raw[4:6]),int(raw[6:8]))
+                                  if d>=date.today(): maximum=max(maximum,d)
+                              except ValueError: pass
+          maximum=min(maximum,date.today()+timedelta(days=90))
+          subprocess.run([sys.executable,"scripts/build_changes.py","--zip","/tmp/gtfs.zip","--state","/tmp/lzm-change-state/state.json","--output","/tmp/changes","--end",maximum.isoformat()],check=True)
+          PY
+      - name: Persist snapshot and event history
+        run: |
+          cd /tmp/lzm-change-state
+          git init -q
+          git config user.name github-actions
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -qb changes-history
+          git add state.json state.events.json
+          git commit -qm 'Update rolling station change snapshots'
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git push --force origin HEAD:changes-history
+      - name: Upload results for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: station-changes
+          path: /tmp/changes/
+          retention-days: 7
