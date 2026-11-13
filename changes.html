@@ -15,13 +15,14 @@
 <div class="filters"><div><label for="period">מועד התחולה</label><select id="period"><option value="all">כל המועדים</option><option value="past">בעבר</option><option value="current">היום</option><option value="future">בעתיד</option></select></div><div><label for="category">סוג השינוי</label><select id="category"><option value="all">כל השינויים</option><option value="added">שירות נוסף</option><option value="removed">שירות בוטל בתחנה</option><option value="route_changed">שינוי מסלול</option><option value="schedule_changed">שינוי לוח זמנים</option></select></div></div>
 <p id="status" role="status" aria-live="polite"></p><div id="results" aria-label="שינויים בתחנה"></div>
 </section><p class="muted">יום תחבורתי: 03:00–02:59 למחרת. תאריך התחולה הוא יום השירות המושפע; תאריך הזיהוי הוא מועד התצפית במערכת, ואינו בהכרח מועד פרסום השינוי. תאריכים חדשים שנצפו לראשונה משמשים בסיס להשוואה, ללא יצירת אירועים היסטוריים.</p>
-<a href="https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip">מקור: נתוני GTFS רשמיים של משרד התחבורה</a>
+<a href="https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip">מקור: נתוני GTFS רשמיים של משרד התחבורה</a><p class="muted">השלמת נתוני עבר: <a href="https://github.com/hasadna/open-bus-pipelines/blob/main/STRIDE_ETL_PROCESSES.md">ארכיון Open Bus</a>, בכפוף לזמינות הצילומים.</p>
 </main><script>
 'use strict';
 const $=id=>document.getElementById(id),results=$('results'),status=$('status');
 let data=null,index=null,ticket=0;
-const dateParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
-const today=['year','month','day'].map(type=>dateParts.find(p=>p.type===type).value).join('-');
+const dateParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+const civilToday=['year','month','day'].map(type=>dateParts.find(p=>p.type===type).value).join('-');
+const today=Number(dateParts.find(p=>p.type==='hour').value)<3?new Date(Date.parse(civilToday+'T00:00:00Z')-86400000).toISOString().slice(0,10):civilToday;
 const dateLabel=d=>d.split('-').reverse().join('.');
 function text(tag,value,parent,cls){const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;parent.append(e);return e}
 function timeLabel(seconds){if(seconds==null)return 'אין שירות';const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60);return String(h%24).padStart(2,'0')+':'+String(m).padStart(2,'0')+(h>=24?' למחרת':'')}
