@@ -17,7 +17,7 @@ def fixture(root):
     routes=[dict(route_id=str(n),agency_id='3',route_type='3',route_short_name=str(n),route_long_name='ביתר עילית<->תל אביב (ABC)-1#',route_desc=f'11{n}-1-0') for n in range(100,121)]
     trips=[dict(route_id=str(n),service_id='s',trip_id='t'+str(n),direction_id='0') for n in range(100,121)]
     trips.append(dict(route_id='100',service_id='s',trip_id='platform2',direction_id='0'))
-    stops=[dict(stop_id='A',stop_code='12345',stop_name='תחנה מרכזית',stop_lat='31.7',stop_lon='35.2'),dict(stop_id='A2',stop_code='12345',stop_name='תחנה מרכזית',stop_lat='31.7',stop_lon='35.2'),dict(stop_id='B',stop_code='12346',stop_name='תחנה מרכזית',stop_lat='31.701',stop_lon='35.2'),dict(stop_id='C',stop_code='12347',stop_name='תחנה רחוקה',stop_lat='31.703',stop_lon='35.2'),dict(stop_id='D',stop_code='12348',stop_name='תחנה ללא שינויים',stop_lat='31.71',stop_lon='35.2')]
+    stops=[dict(stop_id='A',stop_code='12345',stop_name='ת. מרכזית',stop_lat='31.7',stop_lon='35.2'),dict(stop_id='A2',stop_code='12345',stop_name='ת. מרכזית',stop_lat='31.7',stop_lon='35.2'),dict(stop_id='B',stop_code='12346',stop_name='ת. מרכזית',stop_lat='31.701',stop_lon='35.2'),dict(stop_id='C',stop_code='12347',stop_name='תחנה רחוקה',stop_lat='31.703',stop_lon='35.2'),dict(stop_id='D',stop_code='12348',stop_name='תחנה ללא שינויים',stop_lat='31.71',stop_lon='35.2')]
     calendar=[dict(service_id='s',start_date='20261113',end_date='20261231',**{day:'1' for day in 'monday tuesday wednesday thursday friday saturday sunday'.split()})]
     def write(changed):
         times=[]
