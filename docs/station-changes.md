@@ -27,6 +27,12 @@ stop IDs do not identify a change. Without official variant metadata, equal
 headsigns can group variants; this fallback cannot establish perfect identities
 for arbitrary non-Israeli feeds.
 
+Partial transport dates at feed edges are excluded from comparison, separately
+for each variant. Its minimum/maximum midnight shifts determine which source
+service dates are required. Only dates fully covered in both publications can
+prove additions or cancellations. Complete historical observations are preserved
+when the next feed begins with only a partial night.
+
 A first observation is a baseline, including newly extending future horizons.
 Events record the affected date, actual ingestion/detection timestamp, stable ID,
 revision, prior revision ID, service count, first/last departure and mean gap.

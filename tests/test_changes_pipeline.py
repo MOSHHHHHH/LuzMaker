@@ -139,6 +139,12 @@ class PipelineTests(unittest.TestCase):
         rewrite(self.zip,lambda t:t['calendar_dates.txt'][0].update(exception_type='1'))
         self.process();self.assertEqual({e['date'] for e in self.events()},{'2026-11-14'})
         self.assertTrue(all(e['type']=='added' for e in self.events()))
+    def test_partial_transport_dates_at_feed_boundaries_are_not_changes(self):
+        make_zip(self.zip,departure='02:30:00');self.process()
+        rewrite(self.zip,lambda t:t['calendar.txt'][0].update(start_date='20261114',end_date='20261230'))
+        self.process(date(2026,11,14))
+        self.assertEqual(self.events(),[])
+        self.assertEqual(self.events('124'),[])
     def test_corrupt_historical_state_is_not_silently_reinitialized(self):
         self.process();index=(self.output/'index.json').read_bytes()
         self.state.write_bytes(b'corrupt')

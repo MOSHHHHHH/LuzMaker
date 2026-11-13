@@ -68,7 +68,7 @@ jobs:
           import json,sys,hashlib
           from pathlib import Path
           p=Path('/tmp')/sys.argv[1]
-          Path('/tmp/change-manifest.json').write_text(json.dumps({'version':2,'asset':sys.argv[1],'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))
+          Path('/tmp/change-manifest.json').write_text(json.dumps({'version':3,'asset':sys.argv[1],'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))
           PY
       - name: Atomically advance the state manifest without rewriting history
         run: |

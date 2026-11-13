@@ -12,7 +12,7 @@ from pathlib import Path
 
 def validate(root):
     index=json.loads((root/'changes/index.json').read_text())
-    assert index['version']==2 and index['start']<=index['end'] and index['stats']['trips']>0
+    assert index['version']==3 and index['start']<=index['end'] and index['stats']['trips']>0
     files=list((root/'changes/stations').glob('*.json'))
     assert len(files)==index['stations']
     count=0

@@ -25,7 +25,7 @@ from zoneinfo import ZoneInfo
 
 SOURCE = 'https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip'
 WEEK = 'monday tuesday wednesday thursday friday saturday sunday'.split()
-VERSION = 2
+VERSION = 3
 
 
 def pack(value):
@@ -106,6 +106,7 @@ def create_state(db):
     CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT);
     CREATE TABLE routes(id TEXT PRIMARY KEY,data TEXT);
     CREATE TABLE profiles(id TEXT PRIMARY KEY,data TEXT);
+    CREATE TABLE line_shifts(line TEXT PRIMARY KEY,lo INTEGER,hi INTEGER);
     CREATE TABLE snapshots(station TEXT,line TEXT,profile TEXT,days TEXT,
       PRIMARY KEY(station,line,profile));
     CREATE TABLE events(station TEXT,day TEXT,line TEXT,data TEXT,
@@ -138,7 +139,7 @@ def build_raw(zip_path, db, out, start, today):
             identity = [route.get('agency_id', ''), route.get('route_short_name', ''),
                         r.get('direction_id', ''), desc or r.get('trip_headsign', '')]
             trips[r['trip_id']] = (r['service_id'], pack(identity))
-        if not routes or not stops or not trips:
+        if not routes or not stops or not trips or not agencies:
             raise ValueError('Empty GTFS input')
         active, lo, hi = calendars(z, {v[0] for v in trips.values()}, start)
         if hi < today:
@@ -164,6 +165,7 @@ def build_raw(zip_path, db, out, start, today):
         batch = []
         latest = hi
         earliest = lo
+        line_shifts = {}
         for tid, group in itertools.groupby(db.execute('SELECT trip,seq,stop,t,pickup FROM times ORDER BY trip,seq'), lambda x: x[0]):
             seq = list(group)
             if len(seq) < 2 or len({r[1] for r in seq}) != len(seq):
@@ -177,6 +179,9 @@ def build_raw(zip_path, db, out, start, today):
                 if pickup == 1:
                     continue
                 shift = (t - 10800) // 86400
+                bounds = line_shifts.setdefault(line, [shift, shift])
+                bounds[0] = min(bounds[0], shift)
+                bounds[1] = max(bounds[1], shift)
                 mask = 0
                 for service_day in active[service]:
                     day = service_day + timedelta(days=shift)
@@ -192,10 +197,12 @@ def build_raw(zip_path, db, out, start, today):
         db.executemany('INSERT INTO departures VALUES(?,?,?,?,?)', batch)
         if seen != set(trips):
             raise ValueError('Trips missing stop times')
+        out.executemany('INSERT INTO line_shifts VALUES(?,?,?)', [(line,*bounds) for line,bounds in line_shifts.items()])
         db.commit()
         db.execute('DROP TABLE times')
         db.execute('CREATE INDEX dep_station ON departures(station,line)')
         return dict(routes=len(routes), stops=len(stops), trips=len(trips), stopTimes=count,
+                    sourceServiceDates=len({d for dates in active.values() for d in dates if d >= start}),
                     serviceStart=lo.isoformat(), serviceEnd=hi.isoformat(),
                     end=latest.isoformat(), firstCovered=max(start, earliest).isoformat(), agencies=agencies)
 
@@ -297,13 +304,38 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
         old_start = date.fromisoformat(old_meta.get('start', start.isoformat()))
         old_end = date.fromisoformat(old_meta.get('end', start.isoformat()))
         # Comparison coverage excludes absent dates beyond the feed's real horizon.
-        old_first = date.fromisoformat(old_meta.get('firstCovered', start.isoformat()))
         first = date.fromisoformat(stats['firstCovered'])
+        fresh_shifts = {line:(lo,hi) for line,lo,hi in out.execute('SELECT * FROM line_shifts')}
+        old_shifts = {line:(lo,hi) for line,lo,hi in old.execute('SELECT * FROM line_shifts')} if old else {}
+        service_start, service_end = date.fromisoformat(stats['serviceStart']), date.fromisoformat(stats['serviceEnd'])
+        old_service_start = date.fromisoformat(old_meta.get('stats', {}).get('serviceStart',stats['serviceStart']))
+        old_service_end = date.fromisoformat(old_meta.get('stats', {}).get('serviceEnd',stats['serviceEnd']))
+        def bounds(line, shifts, lo, hi):
+            minimum,maximum = shifts.get(line,(0,0))
+            return lo + timedelta(days=max(0,maximum)), hi + timedelta(days=min(0,minimum))
+        # Keep only complete transport dates. Partial edge dates cannot prove
+        # additions/removals: they lack contributions from other service dates.
+        allowed_by_line = {}
+        comparison_ranges = {}
+        for line in fresh_shifts.keys() | old_shifts.keys():
+            lo,hi = bounds(line,fresh_shifts,service_start,service_end)
+            lo,hi = max(start,lo),min(end,hi)
+            allowed_by_line[line] = ((1 << ((hi-start).days+1))-1) ^ ((1 << ((lo-start).days))-1) if hi>=lo else 0
+            a = fresh_shifts.get(line,old_shifts.get(line,(0,0)))
+            b = old_shifts.get(line,fresh_shifts.get(line,(0,0)))
+            union = {line:(min(a[0],b[0]),max(a[1],b[1]))}
+            new_lo,new_hi = bounds(line,union,service_start,service_end)
+            old_lo,old_hi = bounds(line,union,old_service_start,old_service_end)
+            comparison_ranges[line] = (max(start,new_lo,old_lo),min(end,old_end,new_hi,old_hi))
+        def complete_profiles(current):
+            return {line:{h:[v,mask & allowed_by_line[line]] for h,(v,mask) in values.items()
+                          if mask & allowed_by_line[line]} for line,values in current.items()}
         total = 0
         visited = set()
         def consume(station, current):
             nonlocal total
             visited.add(station)
+            current = complete_profiles(current)
             previous = load_station(old, station) if old else {}
             for line, values in current.items():
                 for h, (value, mask) in values.items():
@@ -312,8 +344,8 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
             if not old:
                 return
             for line in previous.keys() | current.keys():
-                day = max(start, first, old_first)
-                while day <= min(end, old_end):
+                day,comparison_end = comparison_ranges[line]
+                while day <= comparison_end:
                     a = on_day(previous.get(line, {}), (day-old_start).days)
                     b = on_day(current.get(line, {}), (day-start).days)
                     if a[0] != b[0]:
@@ -330,7 +362,8 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
                     while mask:
                         bit = mask & -mask
                         day = old_start + timedelta(days=bit.bit_length()-1)
-                        if start <= day < first:
+                        new_lo,_ = bounds(line,fresh_shifts,service_start,service_end)
+                        if start <= day < new_lo:
                             retained |= 1 << (day-start).days
                         mask -= bit
                     if retained:
@@ -348,6 +381,8 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
                     consume(station,{})
         if not out.execute('SELECT 1 FROM snapshots LIMIT 1').fetchone():
             raise ValueError('Empty generated snapshot')
+        if old:
+            out.executemany('INSERT OR IGNORE INTO line_shifts VALUES(?,?,?)', old.execute('SELECT * FROM line_shifts'))
         profile_count = out.execute('SELECT count(*) FROM snapshots').fetchone()[0]
         if old and profile_count < old_meta['stats']['stationProfiles'] * .5 and old_meta['stats']['stationProfiles'] - profile_count > 100:
             raise ValueError('Suspicious loss of active profiles; preserving previous dataset')
@@ -362,7 +397,10 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
             name = hashlib.sha256(station.encode()).hexdigest()[:20]+'.json'
             (stage/'stations'/name).write_text(pack(data),encoding='utf-8')
             count += 1
-        stats.update(windowDates=(end-start).days+1, processedDates=(end-first).days+1, changesThisRun=total,
+        observed_mask = 0
+        for (mask,) in out.execute('SELECT days FROM snapshots'):
+            observed_mask |= int(mask,16)
+        stats.update(windowDates=(end-start).days+1, processedDates=observed_mask.bit_count(), changesThisRun=total,
                      events=out.execute('SELECT count(*) FROM events').fetchone()[0],
                      stationProfiles=out.execute('SELECT count(*) FROM snapshots').fetchone()[0],
                      stationsProcessed=len(visited))
