@@ -122,6 +122,23 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(all(e['type']=='added' for e in self.events()))
         make_zip(self.zip);self.process()
         self.assertTrue(all(e['type']=='removed' for e in self.events()))
+    def test_same_line_distinct_official_variants_are_not_merged(self):
+        def variants(t):
+            t['routes.txt'][0]['route_desc']='100-1-A'
+            t['routes.txt'].append(dict(t['routes.txt'][0],route_id='r2',route_desc='100-1-B'))
+            t['trips.txt'].append(dict(t['trips.txt'][0],route_id='r2',trip_id='t2'))
+            t['stop_times.txt'].extend([dict(r,trip_id='t2') for r in list(t['stop_times.txt'])])
+        rewrite(self.zip,variants);self.process()
+        def edit(t):
+            for r in t['stop_times.txt']:
+                if r['trip_id']=='t2' and r['stop_id']=='s1':r['departure_time']='09:00:00'
+        rewrite(self.zip,edit);self.process()
+        self.assertEqual({json.loads(e['line'])[3] for e in self.events()},{'100-1-B'})
+    def test_changed_exception_compares_only_the_affected_date(self):
+        self.process()
+        rewrite(self.zip,lambda t:t['calendar_dates.txt'][0].update(exception_type='1'))
+        self.process();self.assertEqual({e['date'] for e in self.events()},{'2026-11-14'})
+        self.assertTrue(all(e['type']=='added' for e in self.events()))
     def test_corrupt_historical_state_is_not_silently_reinitialized(self):
         self.process();index=(self.output/'index.json').read_bytes()
         self.state.write_bytes(b'corrupt')

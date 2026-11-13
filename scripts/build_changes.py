@@ -8,6 +8,7 @@ Snapshots are keyed by service date; comparisons are between publications of
 the SAME service date, never between adjacent weekdays.
 """
 import csv
+from datetime import date
 import hashlib
 import io
 import json
