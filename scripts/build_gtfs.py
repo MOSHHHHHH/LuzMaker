@@ -21,6 +21,10 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
+try:
+    from scripts.station_directory import write_directory, city_from_description
+except ModuleNotFoundError:
+    from station_directory import write_directory, city_from_description
 
 URL = "https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip"
 DAYS = 14
@@ -148,7 +152,7 @@ def build(zip_path, out, start):
                     title += " · כיוון " + direction
                 variants[key] = {
                     "id": identifier, "name": title, "agency": agency, "agencyId": agency_id,
-                    "alternative": alternative, "route_desc": route_desc,
+                    "alternative": alternative, "route_desc": route_desc, "direction": direction,
                     "line": number,
                     "stops": {}, "t": defaultdict(lambda: defaultdict(list))
                 }
@@ -160,7 +164,7 @@ def build(zip_path, out, start):
         # Collect only stops actually present in trips within this publication window.
         stop_meta = {}
         for r in rows(zf, "stops.txt"):
-            stop_meta[r["stop_id"]] = (r.get("stop_code") or r["stop_id"], r.get("stop_name", "תחנה לא ידועה"))
+            stop_meta[r["stop_id"]] = (r.get("stop_code") or r["stop_id"], r.get("stop_name", "תחנה לא ידועה"), r.get("stop_lat"), r.get("stop_lon"), city_from_description(r.get("stop_desc", "")))
         processed = 0
         for r in rows(zf, "stop_times.txt"):
             info = trip_index.get(r.get("trip_id"))
@@ -208,10 +212,12 @@ def build(zip_path, out, start):
             }
             line_variants[variant["line"]].append({
                 "id": variant["id"], "name": variant["name"], "agency": variant["agency"], "agencyId": variant["agencyId"],
-                "alternative": variant["alternative"], "route_desc": variant["route_desc"],
+                "alternative": variant["alternative"], "route_desc": variant["route_desc"], "direction": variant["direction"],
                 "stops": stops, "t": trip_sets
             })
         actual_lines = []
+        station_routes = defaultdict(list)
+        updated = datetime.now(ZoneInfo("Asia/Jerusalem")).isoformat(timespec="seconds")
         total_bytes = 0
         for line, entries in sorted(line_variants.items()):
             # Do not use untrusted line numbers as filesystem paths.
@@ -221,6 +227,16 @@ def build(zip_path, out, start):
             path.write_text(payload, encoding="utf-8")
             total_bytes += path.stat().st_size
             actual_lines.append([line, filename])
+            for variant in entries:
+                for stop in variant['stops']:
+                    # Only boardable stops with actual service in the published
+                    # window reached this export; use the public stop code.
+                    station_routes[stop['code']].append([
+                        line, variant['id'], variant['name'], variant['agencyId'],
+                        variant['agency'], stop['id'], stop['name'], variant['alternative'], variant['route_desc'], variant['direction']
+                    ])
+        station_count = write_directory(output_tmp/'data',stop_meta,station_routes,start.isoformat(),updated)
+        print('Station lookup:',station_count,'stations;',sum(len(v) for v in station_routes.values()),'route/stop choices',flush=True)
         # The official GTFS agency_url is the sole image discovery source.
         # Publish only agencies that actually appear in timetable variants.
         used_agencies = {v["agencyId"] for v in variants.values() if v["t"] and v["agencyId"]}
@@ -232,7 +248,7 @@ def build(zip_path, out, start):
         metadata = {
             "format": 2, "source": URL, "start": start.isoformat(),
             "days": DAYS, "dayStarts": "03:00",
-            "updated": datetime.now(ZoneInfo("Asia/Jerusalem")).isoformat(timespec="seconds"),
+            "updated": updated, "stationIndex": 1, "stations": station_count,
             "lines": actual_lines, "routeVariants": len(variants)
         }
         (output_tmp / "data" / "index.json").write_text(

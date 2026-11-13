@@ -1,45 +1,41 @@
-/* Real Chromium integration against files produced by the production pipeline. */
-const assert=require('node:assert/strict');
-const {spawn,execFileSync}=require('node:child_process');
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+'use strict';
+const assert=require('node:assert/strict'),{spawn,execFileSync}=require('node:child_process'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {chromium}=require('playwright');
 (async()=>{
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'lzm-changes-ui-'));
- const python=`
-import sys
-from pathlib import Path
-from datetime import date
-sys.path.insert(0,'tests')
-from test_changes_gtfs import make_zip
-from scripts.changes_pipeline import run
-root=Path(sys.argv[1]);z=root/'feed.zip'
-make_zip(z);run(z,root/'state.sqlite.gz',root/'data/changes',date(2026,11,13))
-make_zip(z,extra_stop=True);run(z,root/'state.sqlite.gz',root/'data/changes',date(2026,11,13))
-`;
- execFileSync('python',['-c',python,root],{stdio:'pipe'});
- fs.copyFileSync('changes.html',path.join(root,'changes.html'));
- const server=spawn('python',['-m','http.server','8765','--bind','127.0.0.1','--directory',root],{stdio:'ignore'});
- let browser;
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'lzm-changes-'));
+ execFileSync('python',['-m','tests.make_ui_fixture',root],{stdio:'pipe'});
+ const server=spawn('python',['-m','http.server','8765','--bind','127.0.0.1','--directory',path.join(root,'site')],{stdio:'ignore'});let browser;
  try{
-  browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
-  const page=await browser.newPage();await page.clock.install({time:new Date('2026-11-13T00:30:00Z')});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/chromium',args:['--no-sandbox']});
+  const page=await browser.newPage({viewport:{width:1200,height:900}});await page.clock.install({time:new Date('2026-11-13T12:00:00Z')});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/changes.html');
-  await page.locator('#station').fill('123');await page.locator('#station').press('Enter');
-  await page.waitForFunction(()=>document.querySelectorAll('#results article').length>0);
-  assert.match(await page.locator('#freshness').innerText(),/2026/);
-  await page.locator('summary').first().click();assert.match(await page.locator('.new').first().innerText(),/125/);
-  await page.selectOption('#category','removed');assert.equal(await page.locator('#results article').count(),0);
-  await page.selectOption('#category','route_changed');assert.ok(await page.locator('#results article').count()>0);
-  await page.selectOption('#period','future');assert.ok(await page.locator('#results article').count()>0);assert.match(await page.locator('#results article h3').first().innerText(),/צפוי/);assert.match(await page.locator('#results article .badge').first().innerText(),/13.11.2026/); // 02:30 is still the preceding transport day.
-  await page.selectOption('#period','current');assert.ok(await page.locator('#results article').count()>0);
-  await page.selectOption('#period','all');
+  await page.locator('#station').fill('תחנה מרכזית ביתר');
+  await page.waitForSelector('#stationSuggestions:not([hidden])');
+  assert.equal(await page.locator('.suggestion').count(),2,'Same-name physical stations remain distinct');
+  await page.locator('#station').press('ArrowUp');assert.equal(await page.locator('#station').getAttribute('aria-activedescendant'),'suggestion-1');await page.locator('#station').press('ArrowDown');await page.locator('#station').press('Enter');
+  await page.waitForSelector('#results article');
+  assert.equal(await page.locator('#stopCode').innerText(),'12345');
+  assert.ok(await page.locator('#results article').count()<10,'Daily repetitions are grouped into useful change cards');
+  assert.match(await page.locator('#results').innerText(),/ביתר עילית/);
+  await page.locator('#station').fill('רחוקה');await page.waitForSelector('#stationSuggestions:not([hidden])');assert.equal(await page.locator('.suggestion').count(),1);await page.locator('#station').fill('x');await page.locator('#station').press('Enter');await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('לפחות שתי אותיות'));assert.equal(await page.locator('#stopCode').innerText(),'12345','A short new query must not select an old suggestion');await page.locator('#station').fill('12345');
+  let releaseRequest,requestBegan;const held=new Promise(r=>releaseRequest=r),began=new Promise(r=>requestBegan=r);const hash=require('node:crypto').createHash('sha256').update('12345').digest('hex').slice(0,20);const delayed='**/changes/stations/'+hash+'.json';await page.route(delayed,async route=>{requestBegan();await held;await route.continue()});await page.locator('#station').fill('12345');await page.locator('#station').press('Enter');await began;await page.locator('#station').fill('רחוקה');releaseRequest();await page.waitForFunction(()=>!document.querySelector('#workspace').hidden);assert.equal(await page.evaluate(()=>document.activeElement.id),'station','A completed old search must not steal focus from a newly typed query');await page.unroute(delayed);await page.locator('#station').fill('12345');
+  await page.selectOption('#category','route_changed');await page.locator('.route-details summary').first().click();assert.match(await page.locator('.removed').first().innerText(),/יוסר|הוסרו/);
+  await page.selectOption('#category','all');await page.locator('#nearby summary').click();
+  assert.equal(await page.locator('#nearbyChoices input[value="12346"]').count(),1);assert.equal(await page.locator('#nearbyChoices input[value="12347"]').count(),0,'333m stop excluded during preprocessing');
+  await page.locator('#nearbyChoices input[value="12346"]').check();await page.locator('#addNearby').click();
+  await page.waitForSelector('.chip');assert.match(await page.locator('#selectedChips').innerText(),/12346/);
+  await page.getByRole('button',{name:'הסר את תחנה 12346 מהתצוגה'}).click();assert.equal(await page.locator('.chip').count(),0);
+  await page.locator('[data-period="past"]').click();assert.equal(await page.locator('#results article').count(),0);
+  await page.locator('[data-period="all"]').click();
   await page.setViewportSize({width:375,height:812});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  await page.locator('#station').fill('999999');await page.locator('#station').press('Enter');
-  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('אין שינויים'));
-  await page.route('**/stations/*.json',r=>r.fulfill({status:500,body:'error'}));
-  await page.locator('#station').fill('124');await page.locator('#station').press('Enter');
-  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('נסו שוב'));
-  assert.deepEqual(errors,[]);
-  console.log('Station changes browser checks passed: generated JSON, Enter search, route expansion, filtering, mobile, empty and error states');
+  if(process.env.LZM_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.LZM_SCREENSHOT_DIR,'changes-mobile.png')});
+  await page.locator('#station').fill('12348');await page.locator('#station').press('Enter');await page.waitForFunction(()=>document.querySelector('#stopCode').textContent==='12348'&&!document.querySelector('#workspace').hidden);assert.match(await page.locator('#results').innerText(),/לא תועדו/);
+  await page.locator('#station').fill('999999');await page.locator('#station').press('Enter');await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('לא נמצאה תחנה'));
+  await page.route('**/data/stations/*.json',r=>r.fulfill({status:503,body:'temporary'}));
+  await page.locator('#station').fill('12345');await page.locator('#station').press('Enter');await page.waitForFunction(()=>document.querySelector('#stationDescription').textContent.includes('פרטי התחנה אינם זמינים'));assert.ok(await page.locator('#results article').count()>0);await page.unroute('**/data/stations/*.json');
+  await page.route('**/changes/stations/*.json',r=>r.fulfill({status:500,body:'error'}));
+  await page.locator('#station').fill('12345');await page.locator('#station').press('Enter');await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('נסו שוב'));
+  const night=await browser.newPage();await night.clock.install({time:new Date('2026-11-13T00:30:00Z')});await night.goto('http://127.0.0.1:8765/changes.html');await night.locator('#station').fill('12345');await night.locator('#station').press('Enter');await night.waitForSelector('#results article');assert.ok((await night.locator('#results article h4').allTextContents()).every(x=>/צפוי/.test(x)),'02:30 is the preceding transport day');await night.clock.setFixedTime(new Date('2026-11-13T01:05:00Z'));await night.locator('[data-period="current"]').click();assert.ok((await night.locator('#results article h4').allTextContents()).length>0);assert.ok((await night.locator('#results article h4').allTextContents()).every(x=>!/צפוי/.test(x)),'An already-open page follows the03:00 transport-day rollover');
+  assert.deepEqual(errors,[]);console.log('PASS: name search, duplicate-name station selection, grouped cards, route details, precomputed 300m nearby selection, filters, mobile, empty/error states and 03:00 future semantics');
  }finally{if(browser)await browser.close();server.kill();fs.rmSync(root,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});
