@@ -181,6 +181,7 @@ input,select{min-height:46px;border-radius:12px}
  .print-sheet{break-before:page!important;page-break-before:always!important}
  .print-sheet:first-child,.print-sheet.print-first-visible{break-before:auto!important;page-break-before:auto!important}
 }
+.station-pick{padding:12px;background:#f5f8fd;border-radius:10px;margin-top:8px}.station-pick fieldset{border:1px solid #bdcde1;border-radius:8px;margin:12px 0}.station-options{max-height:330px;overflow:auto}.station-option{display:flex;align-items:flex-start;gap:10px;padding:10px;border-bottom:1px solid #dbe5f3}.station-option[hidden]{display:none}.station-option input{width:20px;min-height:20px;flex:none;margin-top:4px}.line-entry summary{cursor:pointer;color:#155dc1;padding:10px 0}.station-pick button{margin-top:10px}
 </style>
 </head>
 <body>
@@ -204,7 +205,7 @@ input,select{min-height:46px;border-radius:12px}
 </section>
 <section class="panel no-print hidden" id="editor">
  <div class="row between"><h2 id="editorTitle">קבוצת קווים חדשה</h2><button id="cancelEdit">חזרה</button></div>
- <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: קווים לתל אביב (למקומון)">
+ <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: קווים מביתר לתל אביב">
  <h3 style="margin-top:22px">הוספת קו ותחנה</h3>
  <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 480"><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">חפשו מספר קו כפי שהוא מופיע בנתונים, כולל אות אם קיימת.</div></div><div><label id="routePickerLabel">מסלול</label><select id="routeSelect" class="sr-only-route" tabindex="-1" aria-hidden="true" disabled><option>תחילה בחר קו</option></select><div id="chosenRoute" class="chosen-route hidden" aria-live="polite"></div><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
  <div class="actions" style="margin-top:15px"><button id="addLine" class="primary">＋ הוסף לקבוצה</button><span class="muted small" id="addStatus" aria-live="polite"></span></div>
@@ -225,7 +226,7 @@ input,select{min-height:46px;border-radius:12px}
  <h2 class="print-only" id="printTitle">לו״ז מייקר — לוחות זמנים</h2>
  <div id="resultLegend" class="timetable-legend" aria-label="מקרא קווים"></div>
  <div class="notice no-print" id="resultSource"></div>
- <div class="actions no-print" id="downloadActions"></div>
+ <p id="pdfStatus" class="no-print" role="status" aria-live="polite"></p><div class="actions no-print" id="downloadActions"></div>
  <div id="shesPanel" class="shes-panel no-print hidden" aria-live="polite"></div>
  <div id="resultTables"></div>
  <div id="printTables" class="print-only" aria-hidden="true"></div>
@@ -234,7 +235,7 @@ input,select{min-height:46px;border-radius:12px}
 <footer class="no-print">פרויקט קוד פתוח · הנתונים נשמרים מקומית בדפדפן · מומלץ לוודא את זמני הנסיעות אצל מפעיל התחבורה</footer>
 </div>
 <dialog id="helpDialog" style="max-width:540px;border:1px solid #cbd9ea;border-radius:16px;padding:22px"><h2>איך משתמשים?</h2><p>צרו קבוצה, הוסיפו קווים ומסלולים, בחרו תחנה לכל קו ושמרו. הכלי יזהה אוטומטית לוחות זמנים זהים בימים שונים.</p><p><strong>דוגמאות לשימוש:</strong> הכנת לוח של הקווים לתל אביב לפרסום במקומון, או לוח קווים מהתחנה הקרובה להדפסה ולתלייה על המקרר. המספרים והמסלולים נבחרים מתוך הנתונים העדכניים.</p><p>המידע הוא לוח זמנים מתוכנן ואינו משקף איחורים בזמן אמת. יום תחבורתי מסתיים ב־02:59 למחרת.</p><button id="closeHelp" class="primary">סגור</button></dialog>
-<script src="./shes.js"></script><script src="./aliases.js"></script><script src="./packing.js"></script>
+<script src="./shes.js"></script><script src="./aliases.js"></script><script src="./packing.js"></script><script src="./pdf.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -435,7 +436,7 @@ async function getLine(n){
  if(cache.has(n))return cache.get(n);
  const hit=catalog.lines.find(x=>x[0]===n);
  if(!hit)throw Error("הקו "+n+" אינו קיים בנתונים העדכניים");
- const response=await fetch("./data/lines/"+encodeURIComponent(hit[1]));
+ const response=await fetch("./data/lines/"+encodeURIComponent(hit[1]),{cache:"no-store"});
  if(!response.ok)throw Error("לא ניתן לטעון נתונים לקו "+n);
  const data=await response.json();
  if(!Array.isArray(data.routes))throw Error("קובץ נתונים לא תקין");
@@ -510,8 +511,43 @@ function editGroup(id){
  $("lineNumber").value="";lastLineLookup=null;closedSuggestionsFor=null;resetRoutePicker();$("routeCards").innerHTML="";$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
  renderSelected();show("editor")
 }
+const stationChoiceCache=new Map(),stationChoiceLists=new WeakMap();
 function renderSelected(){
- $("selectedLines").innerHTML=working.length?"<h3>הקווים שנוספו ("+working.length+")</h3>"+working.map((l,i)=>'<div class="line-entry row between"><span><strong>'+safe(l.number)+'</strong> · '+safe(l.routeName)+' · '+safe(l.stopName)+'</span><button class="danger" data-remove="'+i+'">הסר</button></div>').join(""):"<p class='muted small'>עדיין לא נבחרו קווים.</p>"
+ $("selectedLines").innerHTML=working.length?"<h3>הקווים שנוספו ("+working.length+")</h3>"+working.map((l,i)=>'<div class="line-entry"><div class="row between"><span><strong>'+safe(l.number)+'</strong> · '+safe(l.routeName)+' · '+safe(l.stopName)+'</span><button class="danger" data-remove="'+i+'">הסר</button></div><details data-station-index="'+i+'"><summary>הוסף קווים נוספים מהתחנה</summary><div class="station-pick" id="station-pick-'+i+'" aria-live="polite"></div></details></div>').join(""):"<p class='muted small'>עדיין לא נבחרו קווים.</p>"
+}
+async function stationOptions(index){
+ const source=working[index],container=$("station-pick-"+index);
+ if(!source||!container)return;
+ container.textContent="טוען קווים מהתחנה…";
+ try{
+  if(!catalog.stationIndex)throw Error("אינדקס התחנות טרם זמין. רעננו את העמוד לאחר עדכון הנתונים.");
+  let code=source.stopCode;
+  if(!code){const data=await getLine(source.number);const stop=data.routes.find(r=>r.id===source.routeId)?.stops.find(s=>String(s.id)===source.stopId);if(!stop)throw Error("התחנה השמורה אינה זמינה. בחרו אותה מחדש.");code=String(stop.code||stop.id);source.stopCode=code}
+  const key=catalog.updated+"|"+code;
+  if(!stationChoiceCache.has(key))stationChoiceCache.set(key,(async()=>{
+   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code));
+   const name=Array.from(new Uint8Array(bytes)).map(v=>v.toString(16).padStart(2,'0')).join('').slice(0,20);
+   const response=await fetch('./data/stations/'+name+'.json',{cache:'no-store'});
+   if(!response.ok)throw Error("לא ניתן לטעון את רשימת הקווים מהתחנה.");
+   const data=await response.json();
+   if(data.code!==code||data.start!==catalog.start||data.updated!==catalog.updated||!Array.isArray(data.routes))throw Error("נתוני התחנה עודכנו. רעננו את העמוד ונסו שוב.");
+   return data;
+  })().catch(error=>{stationChoiceCache.delete(key);throw error}));
+  const data=await stationChoiceCache.get(key);
+  if(!container.isConnected||working[index]!==source)return;
+  const choices=data.routes.map(row=>{if(!Array.isArray(row)||row.length<8||row.slice(0,10).some(x=>typeof x!=='string')||(row[10]!==undefined&&(!Array.isArray(row[10])||row[10].some(x=>typeof x!=='string'))))throw Error("נתוני תחנה לא תקינים.");return {number:row[0],routeId:row[1],routeName:routeLabel({name:row[2],alternative:row[7]})+(['0','1'].includes(row[9])?' · כיוון '+(Number(row[9])+1):'')+(row[7]&&!['#','0'].includes(row[7])?' · חלופה '+row[7]:''),agencyId:row[3],agency:row[4],stopId:row[5],stopName:row[6],stopCode:code,stopIds:row[10]||[row[5]]}}).filter(row=>!working.some(l=>l.routeId===row.routeId&&(l.stopCode===row.stopCode||l.stopId===row.stopId||row.stopIds.includes(l.stopId))));
+  stationChoiceLists.set(container,choices);container.parentElement.dataset.loaded='true';
+  if(!choices.length){container.textContent="אין קווים נוספים בתחנה זו בטווח הימים הזמין, או שכולם כבר נוספו לקבוצה.";return}
+  container.innerHTML='<p class="small muted">תחנה '+safe(code)+' · בחרו קווים וחלופות להוספה. אין הכללה של תחנות סמוכות.</p><label>סינון לפי קו, יעד או מפעיל<input type="search" data-station-filter="'+index+'" placeholder="חיפוש ברשימה"></label><fieldset><legend>קווים הזמינים בתחנה</legend><div class="station-options">'+choices.map((row,i)=>'<label class="station-option"><input type="checkbox" value="'+i+'"><span><strong>'+safe(row.number)+'</strong> · '+safe(row.routeName)+'<span class="small muted"> · '+safe(row.agency)+(row.stopIds.length>1?' · כל הרציפים בתחנה':'')+'</span></span></label>').join('')+'</div></fieldset><button type="button" class="primary" data-station-add="'+index+'">הוסף את הקווים שנבחרו</button>';
+ }catch(error){if(container.isConnected){container.replaceChildren();const message=document.createElement('p');message.textContent=error.message;container.append(message);const retry=document.createElement('button');retry.type='button';retry.textContent='נסה שוב';retry.dataset.stationRetry=String(index);container.append(retry)}}
+}
+function addStationChoices(index){
+ const container=$("station-pick-"+index),choices=stationChoiceLists.get(container)||[];
+ const selected=[...container.querySelectorAll('input[type="checkbox"]:checked')].map(input=>choices[Number(input.value)]).filter(Boolean);
+ if(!selected.length){editorMessage("בחרו קו אחד לפחות מהרשימה.");return}
+ let count=0;
+ for(const row of selected)if(!working.some(l=>l.routeId===row.routeId&&(l.stopCode===row.stopCode||l.stopId===row.stopId||row.stopIds.includes(l.stopId)))){working.push({...row});count++}
+ renderSelected();editorMessage("");$("addStatus").textContent="נוספו "+count+" קווים מהתחנה ✓";
 }
 function currentLine(){
  const n=normalizeLine($("lineNumber").value);
@@ -599,7 +635,7 @@ async function addLine(silent=false){
   const stop=route?.stops.find(s=>String(s.id)===stopId);
   if(!stop)throw Error("יש לבחור תחנה תקינה.");
   if(!working.some(l=>l.routeId===route.id&&l.stopId===stopId)){
-   working.push({number:actual,routeId:route.id,routeName:routeLabel(route),agency:route.agency||"",agencyId:route.agencyId||"",stopId:String(stop.id),stopName:stop.name});
+   working.push({number:actual,routeId:route.id,routeName:routeLabel(route),agency:route.agency||"",agencyId:route.agencyId||"",stopId:String(stop.id),stopCode:String(stop.code||stop.id),stopName:stop.name});
   }
   renderSelected();editorMessage("");
   $("addStatus").textContent="הקו נוסף בהצלחה ✓";
@@ -652,10 +688,11 @@ async function scheduleFor(iso){
   const data=await getLine(l.number);
   const route=data.routes.find(r=>r.id===l.routeId);
   if(!route)throw Error("מסלול "+l.number+" השתנה במקור הנתונים. יש לעדכן את הקבוצה.");
-  const stop=route.stops.find(s=>s.id===l.stopId);
-  if(!stop)throw Error("תחנה "+l.stopName+" אינה זמינה במסלול. יש לעדכן את הקבוצה.");
-  const entries=route.t?.[l.stopId]||[];
-  const minutes=entries.filter(entry=>(entry[0]&mask)!==0).flatMap(entry=>entry.slice(1));
+  const stopIds=l.stopIds?.length?l.stopIds:[l.stopId];
+  if(stopIds.some(id=>!route.stops.some(s=>s.id===id)))throw Error("תחנה "+l.stopName+" אינה זמינה במסלול. יש לעדכן את הקבוצה.");
+  const entries=stopIds.flatMap(id=>route.t?.[id]||[]);
+  const values=entries.filter(entry=>(entry[0]&mask)!==0).flatMap(entry=>entry.slice(1));
+  const minutes=stopIds.length>1?[...new Set(values)]:values;
   for(const m of minutes)rows.push({line:l.number,route:routeLabel(route),stop:l.stopName,min:m,routeId:l.routeId,stopId:l.stopId});
  }
  rows.sort((a,b)=>a.min-b.min||a.line.localeCompare(b.line,"he"));
@@ -849,8 +886,9 @@ function createResults(readSelection=true){
  $("resultTables").innerHTML=generated.map((a,i)=>'<section class="result" data-result-index="'+i+'"><h3>'+safe(a.alias)+' — '+safe(dateListDisplay(a.dates,timetableDates(generated)))+'</h3><table><thead><tr><th>קו</th><th>שעה בתחנה</th></tr></thead><tbody>'+
  (a.rows.length?a.rows.map(r=>'<tr><td>'+lineBadge(labeledLine(r,legend),legend.get(legendIdentity(r.line,r.routeId,r.stopId))?.colors)+'</td><td class="clock">'+timeString(r.min)+'</td></tr>').join(""):'<tr><td colspan="2">אין נסיעות ביום זה בתחנות שנבחרו</td></tr>')+
  '</tbody></table></section>').join("");
- $("downloadActions").innerHTML='<button class="primary" id="printPdf">הדפסה / PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
+ $("downloadActions").innerHTML='<button class="primary" id="printPdf">PDF לכל הלוחות</button><button id="allCsv">CSV לכל הלוחות</button>'+
  generated.map((a,i)=>'<span class="day-download"><span class="small">'+safe(a.alias)+'</span><button data-csv="'+i+'">CSV</button><button data-print="'+i+'">PDF</button></span>').join("");
+ $("pdfStatus").textContent="";
  $("shesPanel").classList.add("hidden");
  $("shesPanel").innerHTML="";
  if(shesEnabled)$("downloadActions").innerHTML+='<button id="calculateShes" type="button">מדד פיזור הנסיעות (ניסיוני)</button>';
@@ -901,13 +939,20 @@ function calculateGeneratedShes(){
   '<p>המדד מתייחס ללוח המתוכנן, לא לאיחורים או לעומס בפועל. SHES-T סלחני לסטיות קטנות, ו־SHES הוא המדד המדויק. המדדים מוצעים למחקר ואינם תקן רשמי. אין להקיש מציון של 100 על תדירות גבוהה.</p>'+
   combinedShesForTimetables(generated).map(shesResultHtml).join("");
 }
-function printSelected(index){
- // Rebuild a compact page layout rather than hide a block inside a mixed page.
- const legend=colorizeLineLegend(makeLineLegend(selectedGroup.lines));
- $("printTables").innerHTML=printTimetableSheets(index===null?generated:[generated[index]],legend);
- window.print();
+let pdfBusy=false;
+async function printSelected(index){
+ if(pdfBusy)return;pdfBusy=true;
+ const buttons=[...document.querySelectorAll('#printPdf,[data-print]')];for(const button of buttons)button.disabled=true;
+ const status=$("pdfStatus");status.textContent="יוצר קובץ PDF…";
+ try{
+  const list=structuredClone(index===null?generated:[generated[index]]),allDates=timetableDates(list);
+  const legend=colorizeLineLegend(makeLineLegend(selectedGroup.lines));
+  const model={title:"לו״ז מייקר — "+selectedGroup.name,legend:[...legend.entries()].map(([key,item])=>({...item,key})),timetables:list.map(item=>({title:item.alias+" — "+dateListDisplay(item.dates,allDates),rows:item.rows.map(row=>({...row,key:legendIdentity(row.line,row.routeId,row.stopId),label:labeledLine(row,legend),time:timeString(row.min)}))}))};
+  const name=(selectedGroup.name+(index===null?"":" — "+list[0].alias)).replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_');
+  const doc=await LuzPDF.create(model);await doc.save(name+'.pdf',{returnPromise:true});status.textContent="קובץ ה־PDF נוצר והורד."+(doc.luzUnsupportedCharacters?.length?" סמלים שאינם נתמכים בגופן הוחלפו בריבוע.":"");
+ }catch(error){status.textContent="לא ניתן ליצור PDF: "+error.message}
+ finally{pdfBusy=false;for(const button of buttons)button.disabled=false}
 }
-window.addEventListener("afterprint",()=>{document.querySelectorAll(".print-exclude").forEach(n=>n.classList.remove("print-exclude"));document.querySelectorAll(".print-first-visible").forEach(n=>n.classList.remove("print-first-visible"))});
 function csvRows(list,includeTimetableName=false){
  const cells=[["תאריך עברי","תאריך לועזי","קו","מסלול","תחנה","שעה"]];
  if(includeTimetableName)cells[0].unshift("שם הלוח");
@@ -934,7 +979,9 @@ $("lineSuggestions").onclick=e=>{const b=e.target.closest("[data-suggestion]");i
 $("routeCards").onclick=e=>{const b=e.target.closest("[data-route]");if(!b)return;$("routeSelect").value=b.dataset.route;void chooseRoute()};
 $("chosenRoute").onclick=e=>{if(e.target.closest("#changeRoute"))reopenRoutePicker()};
 $("routeSelect").onchange=chooseRoute;$("addLine").onclick=()=>addLine(false);$("saveGroup").onclick=saveGroup;
-$("selectedLines").onclick=e=>{const b=e.target.closest("[data-remove]");if(b){working.splice(Number(b.dataset.remove),1);renderSelected()}};
+$("selectedLines").addEventListener('toggle',e=>{const details=e.target;if(details.open&&details.dataset.stationIndex!==undefined&&!details.dataset.loaded)stationOptions(Number(details.dataset.stationIndex))},true);
+$("selectedLines").addEventListener('input',e=>{if(e.target.dataset.stationFilter===undefined)return;const q=e.target.value.trim().toLocaleLowerCase('he');const container=$("station-pick-"+e.target.dataset.stationFilter);for(const label of container.querySelectorAll('.station-option'))label.hidden=!!q&&!label.textContent.toLocaleLowerCase('he').includes(q)});
+$("selectedLines").onclick=e=>{const b=e.target.closest("[data-remove]"),add=e.target.closest('[data-station-add]'),retry=e.target.closest('[data-station-retry]');if(b){working.splice(Number(b.dataset.remove),1);renderSelected()}else if(add)addStationChoices(Number(add.dataset.stationAdd));else if(retry)stationOptions(Number(retry.dataset.stationRetry))};
 $("groupCards").onclick=e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;if(d.edit)editGroup(d.edit);else if(d.generate)openGenerator(d.generate);else if(d.delete&&confirm("למחוק את הקבוצה?")){groups=groups.filter(g=>g.id!==d.delete);persist();renderGroups()}};
 $("backGen").onclick=()=>{analysisTicket++;show("home")};
 $("generate").onclick=createResults;
