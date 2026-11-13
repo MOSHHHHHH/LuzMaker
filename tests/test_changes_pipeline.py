@@ -112,6 +112,21 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(previous_month(date(2026,3,31)),date(2026,2,28))
         self.process();make_zip(self.zip,departure='08:02:00');self.process();self.process(date(2026,12,15))
         self.assertTrue(all(e['date']>='2026-11-15' for e in self.events()))
+    def test_new_variant_and_cancelled_variant(self):
+        self.process()
+        def add_variant(t):
+            t['routes.txt'].append(dict(t['routes.txt'][0],route_id='r2',route_short_name='6'))
+            t['trips.txt'].append(dict(t['trips.txt'][0],trip_id='t2',route_id='r2'))
+            t['stop_times.txt'].extend([dict(r,trip_id='t2') for r in list(t['stop_times.txt'])])
+        rewrite(self.zip,add_variant);self.process()
+        self.assertTrue(all(e['type']=='added' for e in self.events()))
+        make_zip(self.zip);self.process()
+        self.assertTrue(all(e['type']=='removed' for e in self.events()))
+    def test_corrupt_historical_state_is_not_silently_reinitialized(self):
+        self.process();index=(self.output/'index.json').read_bytes()
+        self.state.write_bytes(b'corrupt')
+        with self.assertRaises(gzip.BadGzipFile):self.process()
+        self.assertEqual(index,(self.output/'index.json').read_bytes())
     def test_atomic_restore_bundle(self):
         from scripts.change_bundle import main
         self.process()

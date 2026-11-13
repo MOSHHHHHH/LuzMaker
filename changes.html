@@ -54,7 +54,7 @@ function render(){
  }
 }
 const indexReady=(async()=>{try{const r=await fetch('./data/changes/index.json',{cache:'no-store'});if(!r.ok)throw Error('index');index=await r.json();if(!index.updated){$('freshness').textContent='המערכת ממתינה לתמונת המצב הראשונה.';return false}
- $('freshness').textContent='עודכן: '+new Date(index.updated).toLocaleString('he-IL',{timeZone:'Asia/Jerusalem'})+' · טווח: '+dateLabel(index.start)+'–'+dateLabel(index.end)+' · תצפיות נשמרות מ־'+dateLabel(index.historyStart)+'; אין היסטוריית פרסומים לפני התצפית הראשונה.';
+ $('freshness').textContent='עודכן: '+new Date(index.updated).toLocaleString('he-IL',{timeZone:'Asia/Jerusalem'})+' · טווח: '+dateLabel(index.start)+'–'+dateLabel(index.end)+' · כיסוי ימי שירות מ־'+dateLabel(index.historyStart)+' · תחילת הניטור במערכת: '+new Date(index.baselineObservedAt).toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'})+'; אין היסטוריית פרסומים מלאה לפני תחילת הניטור.';
  if(index.archiveSnapshots?.length)$('freshness').textContent+=' · הושלם מידע מ־'+index.archiveSnapshots.length+' צילומי ארכיון מדגמיים; אין שחזור מלא של כל פרסומי החודש.';
  if(Date.now()-Date.parse(index.updated)>48*3600000)$('freshness').textContent+=' · הנתונים אינם מעודכנים; העדכון האחרון נשמר.';return true
  }catch{$('freshness').textContent='לא ניתן לטעון מידע על עדכניות הנתונים.';return false}})();

@@ -30,6 +30,7 @@ jobs:
           if [ -n "$heads" ]; then
             git fetch origin changes-history:refs/remotes/origin/changes-history
             git show origin/changes-history:manifest.json > /tmp/change-manifest.json
+            cp /tmp/change-manifest.json /tmp/prior-change-manifest.json
             asset=$(python -c 'import json; print(json.load(open("/tmp/change-manifest.json"))["asset"])')
             gh release download station-change-state --pattern "$asset" --dir /tmp/lzm-change-state
             python - <<'PY'
@@ -92,7 +93,9 @@ jobs:
           assets=json.load(open('/tmp/release.json'))['assets']
           from pathlib import Path
           current=json.loads(Path('/tmp/change-manifest.json').read_text())['asset']
-          assets=sorted((a for a in assets if a['name'].startswith('state-') and a['name']!=current),key=lambda a:a['created_at'],reverse=True)
-          for a in assets[1:]: print(a['id'])
+          prior_path=Path('/tmp/prior-change-manifest.json')
+          previous=json.loads(prior_path.read_text())['asset'] if prior_path.exists() else None
+          for a in assets:
+              if a['name'].startswith('state-') and a['name'] not in (current,previous): print(a['id'])
           PY
           while read -r asset_id; do gh api -X DELETE repos/"$GH_REPO"/releases/assets/"$asset_id"; done < /tmp/obsolete-assets

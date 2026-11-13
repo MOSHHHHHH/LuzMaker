@@ -287,7 +287,8 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
         end = date.fromisoformat(stats['end'])
         if old:
             for key in ('routes','stops','trips','stopTimes'):
-                if stats[key] < old_meta['stats'][key] * .8 and old_meta['stats'][key] - stats[key] > 100:
+                threshold = .8 if key in ('routes','stops') else .5
+                if stats[key] < old_meta['stats'][key] * threshold and old_meta['stats'][key] - stats[key] > 100:
                     raise ValueError('Suspicious feed shrinkage: ' + key + '; keeping last valid publication')
             # Prior route definitions are needed to describe removed stops.
             out.executemany('INSERT OR IGNORE INTO routes VALUES(?,?)', old.execute('SELECT * FROM routes'))
