@@ -43,7 +43,9 @@
 ```bash
 python -m unittest discover -s tests -v
 python scripts/build_gtfs.py --zip /path/to/israel-public-transportation.zip --output _site
-cp index.html _site/index.html
+cp index.html changes.html favicon.svg logo.svg aliases.js packing.js pdf.js _site/
+cp scripts/shes.js _site/
+cp -R assets _site/
 python -m http.server 8000 -d _site
 ```
 
