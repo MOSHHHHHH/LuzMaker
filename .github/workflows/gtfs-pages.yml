@@ -13,6 +13,10 @@ on:
       - 'data/operator-website-fallbacks.json'
       - 'tests/**'
       - '.github/workflows/gtfs-pages.yml'
+  workflow_run:
+    workflows: [Build station change history]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: '35 5 * * *'
@@ -27,6 +31,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     permissions:
@@ -91,10 +96,20 @@ jobs:
         run: |
           cp index.html changes.html favicon.svg logo.svg aliases.js packing.js _site/
           mkdir -p _site/data/changes
-          git fetch origin changes-history:refs/remotes/origin/changes-history || true
-          if git cat-file -e origin/changes-history:changes/index.json 2>/dev/null; then
-            git archive origin/changes-history changes | tar -x -C /tmp
-            cp -R /tmp/changes/. _site/data/changes/
+          heads=$(git ls-remote --heads origin changes-history)
+          if [ -n "$heads" ]; then
+            git fetch origin changes-history:refs/remotes/origin/changes-history
+            git show origin/changes-history:manifest.json > /tmp/change-manifest.json
+            asset=$(python -c 'import json; print(json.load(open("/tmp/change-manifest.json"))["asset"])')
+            GH_TOKEN="${{ github.token }}" gh release download station-change-state --pattern "$asset" --dir /tmp/change-download
+            python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          m=json.loads(Path('/tmp/change-manifest.json').read_text())
+          assert hashlib.sha256((Path('/tmp/change-download')/m['asset']).read_bytes()).hexdigest()==m['sha256']
+          PY
+            python scripts/change_bundle.py restore /tmp/change-download/"$asset" /tmp/change-restored
+            cp -R /tmp/change-restored/changes/. _site/data/changes/
           else
             echo '{"status":"awaiting-first-snapshot","stations":0}' > _site/data/changes/index.json
           fi

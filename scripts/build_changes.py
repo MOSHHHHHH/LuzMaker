@@ -21,7 +21,7 @@ def records(z, name):
     if not found:
         return []
     with z.open(found) as f:
-        return list(csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig")))
+        yield from csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
 
 def active_services(z, days):
     masks = defaultdict(set)
@@ -65,7 +65,7 @@ def snapshot(zip_path, days):
             identity = "|".join((agency,line,direction))
             stop_ids = [s for _,s,_ in seq]
             route_stops = [[stops[s][0],stops[s][1]] for s in stop_ids if s in stops]
-            route_hash = hashlib.sha256(json.dumps(stop_ids).encode()).hexdigest()[:16]
+            route_hash = hashlib.sha256(json.dumps([stops[s][0] for s in stop_ids]).encode()).hexdigest()[:16]
             for day in services_by_id.get(trip.get("service_id"), ()):
                 for _,sid,clock in seq:
                     if sid not in stops: continue
@@ -102,45 +102,12 @@ def compare(previous, current, day):
     return changes
 
 def main():
-    p=argparse.ArgumentParser()
-    p.add_argument("--zip",type=Path,required=True)
-    p.add_argument("--state",type=Path,required=True)
-    p.add_argument("--output",type=Path,required=True)
-    p.add_argument("--today",type=date.fromisoformat,default=datetime.now(ZoneInfo("Asia/Jerusalem")).date())
-    p.add_argument("--end",type=date.fromisoformat,required=True)
-    args=p.parse_args()
-    start=args.today-timedelta(days=30)
-    days=[start+timedelta(days=i) for i in range((args.end-start).days+1)]
-    if not days: raise ValueError("GTFS horizon ends before rolling window")
-    if len(days)>400: raise ValueError("Unreasonable GTFS horizon")
-    fresh=snapshot(args.zip,days)
-    previous=json.loads(args.state.read_text()) if args.state.exists() else {}
-    changes=defaultdict(list)
-    event_path=args.state.with_suffix(".events.json")
-    saved_events=json.loads(event_path.read_text()) if event_path.exists() else {}
-    for station,events in saved_events.items():
-        for event in events:
-            if start.isoformat() <= event["date"] <= args.end.isoformat():
-                changes[station].append(event)
-    observed_at=datetime.now(ZoneInfo("Asia/Jerusalem")).isoformat(timespec="seconds")
-    for day in fresh:
-        if day not in previous: continue  # First observation is not a change.
-        for station,events in compare(previous,fresh,day).items():
-            # Revisions supersede earlier observations for the same line and service day.
-            for event in events:
-                event["detectedAt"]=observed_at
-                changes[station]=[e for e in changes[station] if not (e["date"]==day and e["line"]==event["line"])]
-                changes[station].append(event)
-    changes={station:sorted(events,key=lambda e:(e["date"],e["line"])) for station,events in changes.items() if events}
-    event_path.parent.mkdir(parents=True,exist_ok=True)
-    event_path.write_text(json.dumps(changes,ensure_ascii=False,separators=(",",":")))
-    args.output.mkdir(parents=True,exist_ok=True)
-    station_dir=args.output/"stations"
-    station_dir.mkdir(exist_ok=True)
-    for old_file in station_dir.glob("*.json"): old_file.unlink()
-    for station,events in changes.items():
-        (args.output/"stations"/(hashlib.sha256(station.encode()).hexdigest()[:20]+".json")).write_text(json.dumps({"station":station,"changes":events},ensure_ascii=False,separators=(",",":")))
-    (args.output/"index.json").write_text(json.dumps({"start":start.isoformat(),"end":args.end.isoformat(),"stations":len(changes),"updated":observed_at},ensure_ascii=False))
-    args.state.parent.mkdir(parents=True,exist_ok=True)
-    args.state.write_text(json.dumps(fresh,ensure_ascii=False,separators=(",",":")))
-if __name__=="__main__": main()
+    # Retain the small-fixture comparison API; nationwide CLI uses disk-backed state.
+    try:
+        from scripts.changes_pipeline import main as pipeline_main
+    except ModuleNotFoundError:
+        from changes_pipeline import main as pipeline_main
+    pipeline_main()
+
+if __name__ == "__main__":
+    main()

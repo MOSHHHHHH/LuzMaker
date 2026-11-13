@@ -33,7 +33,7 @@ try{
   const page='<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><style>'+css+'</style></head><body><div id="results"><h2 id="printTitle">לו״ז מייקר</h2><div id="resultLegend"></div><div id="resultTables"></div><div id="printTables">'+sheets+"</div></div></body></html>";
   const target=path.join(dir,f.name+".html"),pdf=path.join(dir,f.name+".pdf");
   fs.writeFileSync(target,page);
-  cp.execFileSync(browser,["--headless","--no-sandbox","--disable-gpu","--disable-dev-shm-usage","--no-pdf-header-footer","--print-to-pdf="+pdf,"file://"+target],{timeout:30000,stdio:"pipe"});
+  cp.execFileSync(browser,["--user-data-dir="+path.join(dir,"chrome-profile"),"--headless","--no-sandbox","--disable-gpu","--disable-dev-shm-usage","--no-pdf-header-footer","--print-to-pdf="+pdf,"file://"+target],{timeout:30000,stdio:"pipe"});
   const binary=fs.readFileSync(pdf).toString("latin1");
   const pages=(binary.match(/\/Type\s*\/Page\b/g)||[]).length;
   assert.equal(pages,f.expected,f.name+": expected "+f.expected+" pages, got "+pages);

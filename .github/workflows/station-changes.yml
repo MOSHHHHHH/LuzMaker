@@ -5,8 +5,6 @@ on:
     - cron: '15 7 * * *'
 permissions:
   contents: write
-  pages: write
-  id-token: write
 concurrency:
   group: station-change-history
   cancel-in-progress: false
@@ -14,69 +12,87 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Restore previous state
+      - name: Test before updating history
+        run: python -m unittest discover -s tests -v
+      - name: Restore previous valid state
         run: |
+          set -euo pipefail
           mkdir -p /tmp/lzm-change-state
-          git fetch origin changes-history:refs/remotes/origin/changes-history || true
-          if git show origin/changes-history:state.json > /tmp/lzm-change-state/state.json 2>/dev/null; then
-            git show origin/changes-history:state.events.json > /tmp/lzm-change-state/state.events.json 2>/dev/null || true
+          heads=$(git ls-remote --heads origin changes-history)
+          if [ -n "$heads" ]; then
+            git fetch origin changes-history:refs/remotes/origin/changes-history
+            git show origin/changes-history:manifest.json > /tmp/change-manifest.json
+            asset=$(python -c 'import json; print(json.load(open("/tmp/change-manifest.json"))["asset"])')
+            gh release download station-change-state --pattern "$asset" --dir /tmp/lzm-change-state
+            python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          m=json.loads(Path('/tmp/change-manifest.json').read_text())
+          assert hashlib.sha256((Path('/tmp/lzm-change-state')/m['asset']).read_bytes()).hexdigest()==m['sha256']
+          PY
+            python scripts/change_bundle.py restore /tmp/lzm-change-state/"$asset" /tmp/lzm-change-state
           fi
+      - name: Bootstrap historical coverage once from Open Bus archive
+        run: python scripts/backfill_changes.py --state /tmp/lzm-change-state/state.sqlite.gz --output /tmp/lzm-change-state/changes
       - name: Download and process official GTFS
         run: |
           python - <<'PY'
-          import urllib.request,zipfile,csv,io,subprocess,sys
-          from datetime import date,timedelta
-          url="https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip"
-          urllib.request.urlretrieve(url,"/tmp/gtfs.zip")
-          maximum=date.today()
-          with zipfile.ZipFile("/tmp/gtfs.zip") as z:
-              for filename,field in [("calendar.txt","end_date"),("calendar_dates.txt","date")]:
-                  names=[n for n in z.namelist() if n.endswith(filename)]
-                  if not names: continue
-                  with z.open(names[0]) as f:
-                      for row in csv.DictReader(io.TextIOWrapper(f,encoding="utf-8-sig")):
-                          raw=row.get(field,"")
-                          if len(raw)==8 and raw.isdigit():
-                              try:
-                                  d=date(int(raw[:4]),int(raw[4:6]),int(raw[6:8]))
-                                  if d>=date.today(): maximum=max(maximum,d)
-                              except ValueError: pass
-          if maximum>date.today()+timedelta(days=90):
-              raise RuntimeError("GTFS horizon exceeds 90 days; inspect feed before truncating")
-          if maximum < date.today(): raise RuntimeError("GTFS has no current or future dates")
-          subprocess.run([sys.executable,"scripts/build_changes.py","--zip","/tmp/gtfs.zip","--state","/tmp/lzm-change-state/state.json","--output","/tmp/changes","--end",maximum.isoformat()],check=True)
-          PY
-      - name: Persist snapshot and event history
-        run: |
-          cd /tmp/lzm-change-state
-          git init -q
-          git config user.name github-actions
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -qb changes-history
-          mkdir -p changes
-          cp -R /tmp/changes/. changes/
-          git add state.json state.events.json changes/
-          python - <<'PY'
-          import json
           from pathlib import Path
-          state=json.loads(Path("state.json").read_text())
-          index=json.loads(Path("changes/index.json").read_text())
-          assert state and index["start"]<=index["end"]
-          assert index["stations"] == len(list(Path("changes/stations").glob("*.json")))
-          print("Validated",len(state),"service days and",index["stations"],"stations with changes")
+          from scripts.build_gtfs import download
+          download(Path('/tmp/gtfs.zip'))
           PY
-          git commit -qm 'Update rolling station change snapshots'
-          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git push --force origin HEAD:changes-history
-          echo "History snapshot published to changes-history"
-      - name: Upload results for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: station-changes
-          path: /tmp/changes/
-          retention-days: 7
+          python scripts/build_changes.py --zip /tmp/gtfs.zip --state /tmp/lzm-change-state/state.sqlite.gz --output /tmp/lzm-change-state/changes
+      - name: Validate, bundle and upload recoverable state
+        run: |
+          set -euo pipefail
+          asset="state-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.zip"
+          python scripts/change_bundle.py bundle /tmp/lzm-change-state /tmp/"$asset"
+          if ! gh release view station-change-state; then
+            gh release create station-change-state --target "$GITHUB_SHA" --title 'Station change processing state' --notes 'Durable build state; not website source. Updated automatically.' --prerelease
+          fi
+          gh release upload station-change-state /tmp/"$asset"
+          python - "$asset" <<'PY'
+          import json,sys,hashlib
+          from pathlib import Path
+          p=Path('/tmp')/sys.argv[1]
+          Path('/tmp/change-manifest.json').write_text(json.dumps({'version':2,'asset':sys.argv[1],'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))
+          PY
+      - name: Atomically advance the state manifest without rewriting history
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet refs/remotes/origin/changes-history; then
+            git worktree add /tmp/change-publish -b changes-history origin/changes-history
+          else
+            mkdir /tmp/change-publish
+            git -C /tmp/change-publish init -q -b changes-history
+            git -C /tmp/change-publish remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git -C /tmp/change-publish config http.https://github.com/.extraheader "$(git config --get http.https://github.com/.extraheader)"
+          fi
+          cp /tmp/change-manifest.json /tmp/change-publish/manifest.json
+          git -C /tmp/change-publish config user.name github-actions
+          git -C /tmp/change-publish config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -C /tmp/change-publish add manifest.json
+          git -C /tmp/change-publish commit -m 'Advance validated station change state'
+          git -C /tmp/change-publish push origin HEAD:changes-history
+      - name: Retain current and previous state assets
+        # Cleanup failure must not invalidate a successfully committed publication.
+        continue-on-error: true
+        run: |
+          gh api repos/"$GH_REPO"/releases/tags/station-change-state > /tmp/release.json
+          python - <<'PY' > /tmp/obsolete-assets
+          import json
+          assets=json.load(open('/tmp/release.json'))['assets']
+          from pathlib import Path
+          current=json.loads(Path('/tmp/change-manifest.json').read_text())['asset']
+          assets=sorted((a for a in assets if a['name'].startswith('state-') and a['name']!=current),key=lambda a:a['created_at'],reverse=True)
+          for a in assets[1:]: print(a['id'])
+          PY
+          while read -r asset_id; do gh api -X DELETE repos/"$GH_REPO"/releases/assets/"$asset_id"; done < /tmp/obsolete-assets
