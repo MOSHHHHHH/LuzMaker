@@ -1,9 +1,5 @@
 name: Build station change history
-# Feature push trigger validates the final state bundle before the first merge.
 on:
-  push:
-    branches: [feature/station-change-detector]
-    paths: ['.github/workflows/station-changes.yml']
   workflow_dispatch:
   schedule:
     - cron: '15 7 * * *'

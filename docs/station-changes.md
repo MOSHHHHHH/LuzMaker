@@ -70,6 +70,11 @@ A rejected Git push leaves the prior manifest valid. The manifest includes a
 SHA-256 checksum. Its current and previous release assets are retained; uploaded
 orphans and older assets are removed only after a successful manifest commit.
 This keeps binary snapshots out of Git history and has no artifact-expiry limit.
+To recover, first pause history writers, validate the retained previous asset with
+`change_bundle.py restore`, and commit its previous manifest as a **new** normal
+commit on `changes-history`. Then rerun the workflow. The preceding manifest is
+available in that branch's Git history. Never force-push or silently initialize
+an empty history to recover from a bad asset.
 The prerelease `station-change-state` and its assets must not be manually deleted.
 The existing preliminary JSON state schema is intentionally not silently imported.
 If a legacy history branch exists, migrate it explicitly before enabling this
