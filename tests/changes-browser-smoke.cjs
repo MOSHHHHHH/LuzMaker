@@ -9,7 +9,7 @@ const {chromium}=require('playwright');
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/chromium',args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:1200,height:900}});await page.clock.install({time:new Date('2026-11-13T12:00:00Z')});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/changes.html');
-  await page.locator('#station').fill('תחנה מרכזית');
+  await page.locator('#station').fill('תחנה מרכזית ביתר');
   await page.waitForSelector('#stationSuggestions:not([hidden])');
   assert.equal(await page.locator('.suggestion').count(),2,'Same-name physical stations remain distinct');
   await page.locator('#station').press('ArrowUp');assert.equal(await page.locator('#station').getAttribute('aria-activedescendant'),'suggestion-1');await page.locator('#station').press('ArrowDown');await page.locator('#station').press('Enter');

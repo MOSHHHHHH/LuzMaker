@@ -22,9 +22,9 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from scripts.station_directory import write_directory
+    from scripts.station_directory import write_directory, city_from_description
 except ModuleNotFoundError:
-    from station_directory import write_directory
+    from station_directory import write_directory, city_from_description
 
 URL = "https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip"
 DAYS = 14
@@ -164,7 +164,7 @@ def build(zip_path, out, start):
         # Collect only stops actually present in trips within this publication window.
         stop_meta = {}
         for r in rows(zf, "stops.txt"):
-            stop_meta[r["stop_id"]] = (r.get("stop_code") or r["stop_id"], r.get("stop_name", "תחנה לא ידועה"), r.get("stop_lat"), r.get("stop_lon"))
+            stop_meta[r["stop_id"]] = (r.get("stop_code") or r["stop_id"], r.get("stop_name", "תחנה לא ידועה"), r.get("stop_lat"), r.get("stop_lon"), city_from_description(r.get("stop_desc", "")))
         processed = 0
         for r in rows(zf, "stop_times.txt"):
             info = trip_index.get(r.get("trip_id"))

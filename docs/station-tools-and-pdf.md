@@ -8,14 +8,17 @@ snapshot schema, historical state or writer workflow.
 
 `build_gtfs.py` now also calls `station_directory.py`. It writes:
 
-- `data/station-search.json`: unique public stop codes and names, fetched lazily
+- `data/station-search.json`: unique public stop codes, names and deduplicated city references, fetched lazily
   when a user searches by name.
-- `data/stations/<sha256(code)[:20]>.json`: name, coordinates, precomputed nearby
+- `data/stations/<sha256(code)[:20]>.json`: name, official city, coordinates, precomputed nearby
   stops, freshness and route choices for that exact public code.
 
 The full official stop inventory is searchable, including stops without bus
 service in the timetable window. Route choices include only boardable variants
-with service in the existing 14-day timetable export. They preserve operator,
+with service in the existing 14-day timetable export. Cities are parsed from the
+official `stop_desc` field; missing cities are not guessed. Name search accepts
+common station abbreviations and city words, and never reuses a stale suggestion
+after the query changes. They preserve operator,
 direction and alternatives. Different stops with the same name are never merged.
 
 Platforms sharing the same public code are one selectable physical-stop variant.

@@ -4,7 +4,7 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
-from scripts.station_directory import neighbours,point,EARTH_METRES,write_directory
+from scripts.station_directory import neighbours,point,EARTH_METRES,write_directory,city_from_description
 
 class StationDirectoryTests(unittest.TestCase):
     def test_precomputed_cutoff_names_and_exact_station(self):
@@ -28,7 +28,7 @@ class StationDirectoryTests(unittest.TestCase):
             meta=json.loads((root/'stations'/(hashlib.sha256(b'101').hexdigest()[:20]+'.json')).read_text())
             self.assertEqual(meta['routes'],[])
             self.assertEqual(meta['nearby'][0][0],'100')
-            self.assertEqual(json.loads((root/'station-search.json').read_text())['stops'],[['100','מרכז'],['101','רכבת']])
+            self.assertEqual([row[:2] for row in json.loads((root/'station-search.json').read_text())['stops']],[['100','מרכז'],['101','רכבת']])
     def test_platforms_are_one_choice_but_distinct_variants_stay_separate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
@@ -40,6 +40,10 @@ class StationDirectoryTests(unittest.TestCase):
             row=next(r for r in data['routes'] if r[1]=='route')
             self.assertEqual(row[5],'a');self.assertEqual(row[10],['a','b'])
             self.assertTrue(all('opposite' not in r[10] for r in data['routes']))
+    def test_city_is_official_metadata_not_a_name_guess(self):
+        self.assertEqual(city_from_description('רחוב: נחל שקמה 12 עיר: שדרות רציף:  קומה: '),'שדרות')
+        self.assertEqual(city_from_description('עיר: תל אביב יפו'),'תל אביב יפו')
+        self.assertEqual(city_from_description('תחנה מרכזית ירושלים'),'')
     def test_bad_coordinates_are_not_invented(self):
         self.assertIsNone(point('nan','35'))
         self.assertIsNone(point('91','35'))

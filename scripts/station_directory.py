@@ -2,6 +2,7 @@
 import hashlib
 import json
 import math
+import re
 from collections import defaultdict
 
 EARTH_METRES=6371008.8
@@ -22,6 +23,11 @@ def distance(a,b):
     dp=math.radians(b[0]-a[0]);dl=math.radians(b[1]-a[1])
     h=math.sin(dp/2)**2+math.cos(p)*math.cos(q)*math.sin(dl/2)**2
     return 2*EARTH_METRES*math.asin(math.sqrt(min(1,max(0,h))))
+
+
+def city_from_description(description):
+    match=re.search(r'עיר:\s*(.*?)(?=\s+(?:רציף|קומה|רחוב|כניסה):|$)',description or '')
+    return match[1].strip() if match else ''
 
 
 def neighbours(stations,radius=RADIUS_METRES):
@@ -52,9 +58,12 @@ def neighbours(stations,radius=RADIUS_METRES):
 
 def write_directory(data_dir,stops,route_choices,start,updated):
     stations={}
-    for code,name,lat,lon in stops.values():
-        if code not in stations:stations[code]={'name':name,'point':point(lat,lon)}
-        elif stations[code]['point'] is None:stations[code]['point']=point(lat,lon)
+    for source in stops.values():
+        code,name,lat,lon=source[:4];city=source[4] if len(source)>4 else ''
+        if code not in stations:stations[code]={'name':name,'point':point(lat,lon),'city':city}
+        else:
+            if stations[code]['point'] is None:stations[code]['point']=point(lat,lon)
+            if not stations[code]['city']:stations[code]['city']=city
     nearby=neighbours(stations)
     directory=data_dir/'stations';directory.mkdir(exist_ok=True)
     for code,row in stations.items():
@@ -64,14 +73,17 @@ def write_directory(data_dir,stops,route_choices,start,updated):
             if key not in choices:
                 value=list(source[:10]);value.extend(['']*(10-len(value)));value.append([])
                 choices[key]=value
-            if source[5] not in choices[key][10]:choices[key][10].append(source[5])
+            ids=source[10] if len(source)>10 else [source[5]]
+            for stop_id in ids:
+                if stop_id not in choices[key][10]:choices[key][10].append(stop_id)
         for value in choices.values():
             value[10].sort();value[5]=value[10][0]
-        payload={'code':code,'name':row['name'],'location':row['point'],'nearby':nearby[code],
+        payload={'code':code,'name':row['name'],'city':row['city'],'location':row['point'],'nearby':nearby[code],
                  'radiusMetres':RADIUS_METRES,'start':start,'updated':updated,
                  'routes':sorted(choices.values(),key=lambda x:(x[0],x[1],x[5]))}
         name=hashlib.sha256(code.encode()).hexdigest()[:20]+'.json'
         (directory/name).write_text(json.dumps(payload,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-    search={'updated':updated,'stops':[[code,row['name']] for code,row in sorted(stations.items())]}
+    cities=sorted({row['city'] for row in stations.values()});city_ids={city:i for i,city in enumerate(cities)}
+    search={'updated':updated,'cities':cities,'stops':[[code,row['name'],city_ids[row['city']]] for code,row in sorted(stations.items())]}
     (data_dir/'station-search.json').write_text(json.dumps(search,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     return len(stations)
