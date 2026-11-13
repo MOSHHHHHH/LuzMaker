@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'changes.html'
       - 'favicon.svg'
       - 'logo.svg'
       - 'aliases.js'
@@ -12,6 +13,10 @@ on:
       - 'data/operator-website-fallbacks.json'
       - 'tests/**'
       - '.github/workflows/gtfs-pages.yml'
+  workflow_run:
+    workflows: [Build station change history]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: '35 5 * * *'
@@ -26,6 +31,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     permissions:
@@ -88,7 +94,25 @@ jobs:
         run: python scripts/fetch_operator_favicons.py
       - name: Include the website
         run: |
-          cp index.html favicon.svg logo.svg aliases.js packing.js _site/
+          cp index.html changes.html favicon.svg logo.svg aliases.js packing.js _site/
+          mkdir -p _site/data/changes
+          heads=$(git ls-remote --heads origin changes-history)
+          if [ -n "$heads" ]; then
+            git fetch origin changes-history:refs/remotes/origin/changes-history
+            git show origin/changes-history:manifest.json > /tmp/change-manifest.json
+            asset=$(python -c 'import json; print(json.load(open("/tmp/change-manifest.json"))["asset"])')
+            GH_TOKEN="${{ github.token }}" gh release download station-change-state --pattern "$asset" --dir /tmp/change-download
+            python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          m=json.loads(Path('/tmp/change-manifest.json').read_text())
+          assert hashlib.sha256((Path('/tmp/change-download')/m['asset']).read_bytes()).hexdigest()==m['sha256']
+          PY
+            python scripts/change_bundle.py restore /tmp/change-download/"$asset" /tmp/change-restored
+            cp -R /tmp/change-restored/changes/. _site/data/changes/
+          else
+            echo '{"status":"awaiting-first-snapshot","stations":0}' > _site/data/changes/index.json
+          fi
           cp scripts/shes.js _site/shes.js
           touch _site/.nojekyll
           python - <<'PY'
@@ -98,6 +122,8 @@ jobs:
           data = json.loads(p.read_text(encoding='utf-8'))
           assert len(data['lines']) >= 20, 'Generated dataset is incomplete'
           assert Path('_site/index.html').stat().st_size > 1000
+          assert Path('_site/changes.html').exists()
+          assert Path('_site/data/changes/index.json').exists()
           assert Path('_site/favicon.svg').exists()
           assert Path('_site/logo.svg').exists()
           assert Path('_site/aliases.js').exists()

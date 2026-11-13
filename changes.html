@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>מזהה שינויים — לו״ז מייקר</title><link rel="icon" href="favicon.svg">
+<style>
+:root{font-family:system-ui,Arial;color:#172b4b;background:#f3f6fb}body{margin:0}.wrap{max-width:960px;margin:auto;padding:24px}.panel{background:white;border:1px solid #dbe5f3;border-radius:18px;padding:24px;margin:18px 0}a{color:#155dc1}input,button,select{font:inherit;padding:12px;border:1px solid #9aafc8;border-radius:9px;min-height:44px}input{width:100%;box-sizing:border-box}button{background:#155dc1;color:white;cursor:pointer}button:disabled{opacity:.6}label{display:block;margin:10px 0 6px}.filters{display:flex;gap:20px;flex-wrap:wrap}.event{padding:16px 0;border-top:1px solid #dbe5f3}.muted{color:#4c6077}.new{color:#086b45;font-weight:bold}.removed{color:#a31e30;font-weight:bold}summary{cursor:pointer;padding:12px 0;color:#155dc1}h2{font-size:1.2rem}h3{font-size:1rem}li{padding:4px}*:focus-visible{outline:3px solid #d36d00;outline-offset:3px}.badge{display:inline-block;background:#eaf1fc;padding:4px 10px;border-radius:20px}#results:empty{display:none}@media(max-width:550px){.wrap{padding:12px}.panel{padding:16px}.filters{display:block}select{width:100%}}@media(prefers-reduced-motion:no-preference){button:hover{filter:brightness(.92)}}
+</style></head>
+<body><main class="wrap">
+<a href="./index.html">← חזרה ללו״ז מייקר</a>
+<section class="panel"><h1>מזהה שינויים בתחנות</h1>
+<p>שינויים בלוחות המתוכננים של משרד התחבורה בין פרסומי GTFS של אותו תאריך. יש לוודא נסיעות אצל המפעיל.</p>
+<p id="freshness" class="muted" role="status">טוען מידע על זמינות הנתונים…</p>
+<form id="searchForm"><label for="station">מספר תחנה</label><input id="station" name="station" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" required autocomplete="off" placeholder="למשל 12345"><p><button id="search" type="submit">הצג שינויים</button></p></form>
+<div class="filters"><div><label for="period">מועד התחולה</label><select id="period"><option value="all">כל המועדים</option><option value="past">בעבר</option><option value="current">היום</option><option value="future">בעתיד</option></select></div><div><label for="category">סוג השינוי</label><select id="category"><option value="all">כל השינויים</option><option value="added">שירות נוסף</option><option value="removed">שירות בוטל בתחנה</option><option value="route_changed">שינוי מסלול</option><option value="schedule_changed">שינוי לוח זמנים</option></select></div></div>
+<p id="status" role="status" aria-live="polite"></p><div id="results" aria-label="שינויים בתחנה"></div>
+</section><p class="muted">יום תחבורתי: 03:00–02:59 למחרת. תאריך התחולה הוא יום השירות המושפע; תאריך הזיהוי הוא מועד התצפית במערכת, ואינו בהכרח מועד פרסום השינוי. תאריכים חדשים שנצפו לראשונה משמשים בסיס להשוואה, ללא יצירת אירועים היסטוריים.</p>
+<a href="https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip">מקור: נתוני GTFS רשמיים של משרד התחבורה</a><p class="muted">השלמת נתוני עבר: <a href="https://github.com/hasadna/open-bus-pipelines/blob/main/STRIDE_ETL_PROCESSES.md">ארכיון Open Bus</a>, בכפוף לזמינות הצילומים.</p>
+</main><script>
+'use strict';
+const $=id=>document.getElementById(id),results=$('results'),status=$('status');
+let data=null,index=null,ticket=0;
+const dateParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+const civilToday=['year','month','day'].map(type=>dateParts.find(p=>p.type===type).value).join('-');
+const today=Number(dateParts.find(p=>p.type==='hour').value)<3?new Date(Date.parse(civilToday+'T00:00:00Z')-86400000).toISOString().slice(0,10):civilToday;
+const dateLabel=d=>d.split('-').reverse().join('.');
+function text(tag,value,parent,cls){const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;parent.append(e);return e}
+function timeLabel(seconds){if(seconds==null)return 'אין שירות';const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60);return String(h%24).padStart(2,'0')+':'+String(m).padStart(2,'0')+(h>=24?' למחרת':'')}
+function render(){
+ results.replaceChildren();if(!data)return;
+ const events=data.changes.filter(e=>($('category').value==='all'||e.type===$('category').value)&&($('period').value==='all'||($('period').value==='past'?e.date<today:$('period').value==='current'?e.date===today:e.date>today)));
+ status.textContent=events.length?'תחנה '+data.station+' · '+events.length+' שינויים':'אין שינויים מתועדים התואמים למסננים בתחנה זו.';
+ const groups=new Map();
+ for(const change of events){if(!groups.has(change.line))groups.set(change.line,[]);groups.get(change.line).push(change)}
+ for(const [line,changes] of groups){
+  let identity;try{identity=JSON.parse(line)}catch{identity=line.split('|')}
+  const group=document.createElement('section');
+  text('h2','קו '+identity[1]+' · כיוון '+(identity[2]||'לא צוין'),group);
+  text('p','מפעיל: '+(index?.stats?.agencies?.[identity[0]]||identity[0])+' · חלופה: '+(identity[3]||'לא צוין'),group,'muted');
+  for(const change of changes){
+   const item=document.createElement('article');item.className='event';
+   const future=change.date>today;
+   const labels=future?{added:'שירות יתווסף בתחנה',removed:'השירות בתחנה יבוטל',route_changed:'המסלול צפוי להשתנות',schedule_changed:'לוח הזמנים צפוי להשתנות'}:{added:'שירות נוסף בתחנה',removed:'השירות בתחנה בוטל',route_changed:'המסלול השתנה',schedule_changed:'לוח הזמנים השתנה'};
+   text('h3',labels[change.type]||'שינוי',item);
+   text('p',(future?'יחול ב־':'תחולה: ')+dateLabel(change.date),item,'badge');
+   text('p','זוהה במערכת: '+new Date(change.detectedAt).toLocaleString('he-IL',{timeZone:'Asia/Jerusalem'}),item,'muted');
+   if(change.revision>1)text('p','עדכון מספר '+change.revision+' — מחליף תצפית קודמת עבור יום זה',item,'muted');
+   if(change.before&&change.after){for(const [key,label] of [['before','לפני'],['after','אחרי']]){const s=change[key];text('p',label+': '+s.count+' יציאות · ראשונה '+timeLabel(s.first)+' · אחרונה '+timeLabel(s.last)+(s.meanInterval!=null?' · מרווח ממוצע '+Math.round(s.meanInterval/60)+' דקות':''),item)}}
+   if(change.routes){
+    const details=document.createElement('details');text('summary','השוואת מסלול ותחנות',details);
+    for(const ref of change.routes){const route=data.routeDefinitions?.[ref]||ref;const list=document.createElement('ol');for(const stop of route){const added=change.addedStops?.includes(stop[0]);text('li',stop[1]+' ('+stop[0]+')'+(added?' — תחנה נוספה':''),list,added?'new':'')}details.append(list)}
+    if(change.removedStops?.length){text('h3','תחנות שהוסרו',details,'removed');const list=document.createElement('ul');for(const stop of change.removedStops)text('li',Array.isArray(stop)?stop[1]+' ('+stop[0]+')':stop,list,'removed');details.append(list)}item.append(details)
+   }group.append(item)
+  }results.append(group)
+ }
+}
+const indexReady=(async()=>{try{const r=await fetch('./data/changes/index.json',{cache:'no-store'});if(!r.ok)throw Error('index');index=await r.json();if(!index.updated){$('freshness').textContent='המערכת ממתינה לתמונת המצב הראשונה.';return false}
+ $('freshness').textContent='עודכן: '+new Date(index.updated).toLocaleString('he-IL',{timeZone:'Asia/Jerusalem'})+' · טווח: '+dateLabel(index.start)+'–'+dateLabel(index.end)+' · כיסוי ימי שירות מ־'+dateLabel(index.historyStart)+' · תחילת הניטור במערכת: '+new Date(index.baselineObservedAt).toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'})+'; אין היסטוריית פרסומים מלאה לפני תחילת הניטור.';
+ if(index.archiveSnapshots?.length)$('freshness').textContent+=' · הושלם מידע מ־'+index.archiveSnapshots.length+' צילומי ארכיון מדגמיים; אין שחזור מלא של כל פרסומי החודש.';
+ if(Date.now()-Date.parse(index.updated)>48*3600000)$('freshness').textContent+=' · הנתונים אינם מעודכנים; העדכון האחרון נשמר.';return true
+ }catch{$('freshness').textContent='לא ניתן לטעון מידע על עדכניות הנתונים.';return false}})();
+$('searchForm').onsubmit=async e=>{
+ e.preventDefault();const code=$('station').value.trim();const request=++ticket;data=null;results.replaceChildren();
+ if(!/^\d{1,10}$/.test(code)){status.textContent='יש להזין מספר תחנה תקין';return}
+ status.textContent='טוען…';
+ try{
+  if(!await indexReady){status.textContent='נתוני השינויים אינם זמינים כרגע.';return}
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code));
+  const name=Array.from(new Uint8Array(digest)).map(n=>n.toString(16).padStart(2,'0')).join('').slice(0,20);
+  const response=await fetch('./data/changes/stations/'+name+'.json',{cache:'no-store'});
+  if(request!==ticket)return;
+  if(response.status===404){status.textContent='אין שינויים מתועדים בתחנה זו בטווח הכיסוי. אין בכך אישור שאין שינוי בשירות.';return}
+  if(!response.ok)throw Error('station');const loaded=await response.json();if(request!==ticket)return;
+  if(loaded.station!==code||!Array.isArray(loaded.changes))throw Error('schema');data=loaded;render()
+ }catch{if(request===ticket)status.textContent='לא ניתן לטעון את הנתונים כרגע. נסו שוב.'}
+};
+$('period').onchange=render;$('category').onchange=render;
+</script></body></html>

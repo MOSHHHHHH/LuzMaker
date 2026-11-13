@@ -1,9 +1,11 @@
 name: UI and GTFS regression checks
 on:
   push:
-    branches: [main]
+    branches: [main, feature/station-change-detector]
     paths:
       - 'index.html'
+      - 'changes.html'
+      - '.github/workflows/station-changes.yml'
       - 'tests/**'
       - 'scripts/**'
       - '.github/workflows/ui-check.yml'
@@ -28,7 +30,20 @@ jobs:
           Path('/tmp/lzm-ui.js').write_text(script, encoding='utf-8')
           PY
           node --check /tmp/lzm-ui.js
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('changes.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>',html,re.S)
+          assert len(scripts)==1
+          Path('/tmp/lzm-changes.js').write_text(scripts[0],encoding='utf-8')
+          PY
+          node --check /tmp/lzm-changes.js
       - name: Exercise the actual UI event flow with simulated data
         run: node tests/ui-smoke.cjs
       - name: Check GTFS time boundaries and exceptions
         run: python -m unittest discover -s tests -v
+      - name: Browser integration for station changes
+        run: |
+          npm install --prefix /tmp/lzm-browser playwright@1.56.1
+          CHROME_BIN=$(command -v google-chrome || command -v chromium) NODE_PATH=/tmp/lzm-browser/node_modules node tests/changes-browser-smoke.cjs
