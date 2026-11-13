@@ -62,6 +62,7 @@ class PipelineTests(unittest.TestCase):
         make_zip(self.zip);self.process()
         self.assertIn(['125','Third'],self.events()[0]['removedStops'])
         self.assertEqual(self.events('125')[0]['type'],'removed')
+        self.assertEqual(self.events('125')[0]['removedStops'],[['125','Third']])
     def test_identifier_churn_and_names_do_not_change_identity(self):
         self.process()
         def transform(t):

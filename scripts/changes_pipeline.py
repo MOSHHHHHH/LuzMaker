@@ -263,8 +263,11 @@ def event(before, after, day, line, observed, station, old_event, out):
         old_routes, new_routes = sequences(a), sequences(b)
         old_stops = {s[0]: s[1] for seq in old_routes for s in seq}
         new_stops = {s[0]: s[1] for seq in new_routes for s in seq}
-        item.update(routes=b['routes'] if b else [], addedStops=sorted(new_stops.keys()-old_stops.keys()),
-                    removedStops=[[k,old_stops[k]] for k in sorted(old_stops.keys()-new_stops.keys())])
+        added_codes = sorted(new_stops.keys()-old_stops.keys()) if kind == 'route_changed' else [station] if kind == 'added' else []
+        removed_codes = sorted(old_stops.keys()-new_stops.keys()) if kind == 'route_changed' else [station] if kind == 'removed' else []
+        # Station-local absence does not prove the entire route was cancelled.
+        item.update(routes=b['routes'] if b else [], addedStops=added_codes,
+                    removedStops=[[k,old_stops.get(k,'')] for k in removed_codes])
     return item
 
 
@@ -304,14 +307,13 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
         old_start = date.fromisoformat(old_meta.get('start', start.isoformat()))
         old_end = date.fromisoformat(old_meta.get('end', start.isoformat()))
         # Comparison coverage excludes absent dates beyond the feed's real horizon.
-        first = date.fromisoformat(stats['firstCovered'])
         fresh_shifts = {line:(lo,hi) for line,lo,hi in out.execute('SELECT * FROM line_shifts')}
         old_shifts = {line:(lo,hi) for line,lo,hi in old.execute('SELECT * FROM line_shifts')} if old else {}
         service_start, service_end = date.fromisoformat(stats['serviceStart']), date.fromisoformat(stats['serviceEnd'])
         old_service_start = date.fromisoformat(old_meta.get('stats', {}).get('serviceStart',stats['serviceStart']))
         old_service_end = date.fromisoformat(old_meta.get('stats', {}).get('serviceEnd',stats['serviceEnd']))
         def bounds(line, shifts, lo, hi):
-            minimum,maximum = shifts.get(line,(0,0))
+            minimum,maximum = shifts.get(line,old_shifts.get(line,(0,0)))
             return lo + timedelta(days=max(0,maximum)), hi + timedelta(days=min(0,minimum))
         # Keep only complete transport dates. Partial edge dates cannot prove
         # additions/removals: they lack contributions from other service dates.
@@ -407,10 +409,11 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
         sources = old_meta.get('archiveSnapshots', [])
         if provenance and provenance not in sources:
             sources.append(provenance)
+        coverage_start = (start + timedelta(days=(observed_mask & -observed_mask).bit_length()-1)).isoformat()
         metadata = dict(archiveSnapshots=sources, version=VERSION,start=start.isoformat(),end=end.isoformat(),
-                        firstCovered=stats['firstCovered'],updated=observed,stations=count,
+                        firstCovered=coverage_start,updated=observed,stations=count,
                         baselineObservedAt=old_meta.get('baselineObservedAt',observed),
-                        historyStart=max(start.isoformat(), old_meta.get('historyStart',stats['firstCovered'])),
+                        historyStart=coverage_start,
                         source=SOURCE,stats=stats)
         out.executemany('INSERT INTO meta VALUES(?,?)',[(k,pack(v)) for k,v in metadata.items()])
         out.commit()

@@ -1,5 +1,5 @@
 name: Build station change history
-# Feature push trigger is temporary validation before the first production merge.
+# Feature push trigger validates the final state bundle before the first merge.
 on:
   push:
     branches: [feature/station-change-detector]
