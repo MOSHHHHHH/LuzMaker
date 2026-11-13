@@ -57,7 +57,7 @@ jobs:
           asset="state-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.zip"
           python scripts/change_bundle.py bundle /tmp/lzm-change-state /tmp/"$asset"
           if ! gh release view station-change-state; then
-            gh release create station-change-state --target "$GITHUB_SHA" --title 'Station change processing state' --notes 'Durable build state; not website source. Updated automatically.' --prerelease
+            gh release create station-change-state --target "${{ github.event.repository.default_branch }}" --title 'Station change processing state' --notes 'Durable build state; not website source. Updated automatically.' --prerelease
           fi
           gh release upload station-change-state /tmp/"$asset"
           python - "$asset" <<'PY'
