@@ -21,9 +21,9 @@
 </main><script>
 'use strict';
 const $=id=>document.getElementById(id),results=$('results'),status=$('status');
-const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
-const civil=['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('-');
-const today=Number(parts.find(p=>p.type==='hour').value)<3?new Date(Date.parse(civil+'T00:00:00Z')-86400000).toISOString().slice(0,10):civil;
+const transportFormatter=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'});
+function transportToday(){const parts=transportFormatter.formatToParts(new Date());const civil=['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('-');return Number(parts.find(p=>p.type==='hour').value)<3?new Date(Date.parse(civil+'T00:00:00Z')-86400000).toISOString().slice(0,10):civil}
+let today=transportToday();
 let index=null,ticket=0,controller=null,period='future',sources=new Map(),primary=null,meta=null,nameIndex=null,suggestions=[],activeSuggestion=-1,lookupTimer,selectedCode=null,primaryDescription='';
 const knownMeta=new Map();
 const dateLabel=d=>d.split('-').reverse().join('.');
@@ -67,6 +67,7 @@ function setPeriod(value){period=value;results.setAttribute('aria-labelledby','r
 for(const b of document.querySelectorAll('[data-period]')){b.onclick=()=>setPeriod(b.dataset.period);b.addEventListener('keydown',e=>{const keys=['ArrowLeft','ArrowRight','Home','End'];if(!keys.includes(e.key))return;e.preventDefault();const buttons=[...document.querySelectorAll('[data-period]')],i=buttons.indexOf(b),n=e.key==='Home'?0:e.key==='End'?buttons.length-1:(i+(e.key==='ArrowLeft'?1:-1)+buttons.length)%buttons.length;setPeriod(buttons[n].dataset.period);buttons[n].focus()})}
 function empty(message,detail,action){const box=document.createElement('div');box.className='empty';text('h3',message,box);text('p',detail,box);if(action){const b=text('button','הצג את כל השינויים',box,'primary');b.onclick=()=>{$('category').value='all';$('lineFilter').value='';setPeriod('all')}}results.append(box)}
 function render(){
+ today=transportToday();
  const all=allEvents();for(const b of document.querySelectorAll('[data-period]'))b.querySelector('.count').textContent=grouped(all.filter(e=>inPeriod(e,b.dataset.period))).length;
  const q=normal($('lineFilter').value);const groups=grouped(all.filter(e=>inPeriod(e,period)&&($('category').value==='all'||e.type===$('category').value)&&(!q||normal(identity(e.line)[1]).startsWith(q))));
  results.replaceChildren();const unique=new Set(groups.map(g=>g.event.line));$('resultSummary').textContent=groups.length?groups.length+' עדכונים ב־'+unique.size+' קווים וחלופות':'אין עדכונים תואמים';
@@ -98,5 +99,6 @@ $('searchForm').onsubmit=async e=>{e.preventDefault();clearTimeout(lookupTimer);
  meta=stationMeta;if(!meta&&!data.changes.length){status.textContent=metadataUnavailable?'לא ניתן לבדוק את פרטי התחנה כרגע. נסו שוב.':'לא נמצאה תחנה ברשימה העדכנית. בדקו את המספר ונסו שוב.';return}sources.set(code,data);$('stopCode').textContent=code;$('stopName').textContent=meta?.name||'תחנה '+code;$('stationDescription').textContent=meta?(!meta.location?'אין מידע מיקום לתחנה זו, ולכן אין אפשרות להציע תחנות קרובות.':meta.nearby.length?'עדכונים בתחנה הזו בלבד.':'לא נמצאו תחנות נוספות בטווח של 300 מטר.'):metadataUnavailable?'פרטי התחנה אינם זמינים כרגע; מוצגת היסטוריית השינויים בלבד.':'תחנה עם היסטוריית שינויים, שאינה מופיעה ברשימת התחנות העדכנית.';if(meta?.city)$('stationDescription').textContent=meta.city+' · '+$('stationDescription').textContent;primaryDescription=$('stationDescription').textContent;document.body.classList.add('has-results');$('workspace').hidden=false;showNearby();updateChips();period='future';$('category').value='all';$('lineFilter').value='';setPeriod(period);status.textContent='';$('stopName').tabIndex=-1;if($('station').value.trim()===code){$('stopName').focus({preventScroll:true});$('workspace').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})}
  }catch(error){if(request===ticket&&error.name!=='AbortError')status.textContent=error.message||'לא ניתן לטעון את הנתונים כרגע. נסו שוב.'}
 };
+setInterval(()=>{if(sources.size&&transportToday()!==today)render()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&sources.size)render()});
 $('category').onchange=render;$('lineFilter').addEventListener('input',render);
 </script></body></html>
