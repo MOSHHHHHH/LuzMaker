@@ -117,3 +117,5 @@ The index reports measured build time, peak process memory (Linux ru_maxrss),
 input counts, service horizon, transport dates processed, compressed state size,
 published JSON bytes and event counts. Archive and current builds should be run
 in separate Python processes when comparing individual peak memory values.
+
+ראו [דוח מדידות ואימות נתוני אמת](station-changes-validation.md).
