@@ -1,5 +1,8 @@
 name: Build station change history
 on:
+  push:
+    branches: [feature/station-change-detector]
+    paths: ['.github/workflows/station-changes.yml']
   workflow_dispatch:
   schedule:
     - cron: '15 7 * * *'

@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-"""Compact per-station GTFS change detection. Standard-library only.
+"""Station detector CLI and backward-compatible small-fixture comparison helpers.
+
+Nationwide builds use changes_pipeline.py and compressed SQLite state. The
+legacy snapshot/compare helpers below are only for small in-memory fixtures.
 
 Snapshots are keyed by service date; comparisons are between publications of
 the SAME service date, never between adjacent weekdays.
 """
-import argparse
 import csv
 import hashlib
 import io
 import json
 import zipfile
-from zoneinfo import ZoneInfo
-from datetime import datetime
 from collections import defaultdict
-from datetime import date, timedelta
-from pathlib import Path
 
 def records(z, name):
     found = next((n for n in z.namelist() if n.rsplit("/", 1)[-1] == name), None)
