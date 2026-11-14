@@ -42,10 +42,10 @@ reported without claiming that a specific journey moved. Interior time changes
 are detected even with unchanged count, first departure and last departure.
 Route and schedule flags are independent, allowing both to change together.
 
-Every card has a "ראה פרטים" button. Schedule changes show all exact departures,
+Every card has a "מידע נוסף" button opening one accessible native modal. Escape, the close button and a backdrop click dismiss it and restore focus to the originating card. Late responses cannot reopen a closed modal; failed loads can be retried. Structural changes are ordered globally before schedule-only changes: route changes, added service, removed service, then schedule changes. Schedule changes show all exact departures,
 counts, first/last differences and added/removed multiplicities. Route changes
 show both ordered stop sequences, additions and removals. A route-only change
-does not show schedule details. Combined changes show both. A date picker exposes
+does not show schedule details. Combined changes show both. A date picker in the modal exposes
 every grouped pair. Acquisition timestamps are secondary source information,
 not a claim about the original publication timestamp.
 
