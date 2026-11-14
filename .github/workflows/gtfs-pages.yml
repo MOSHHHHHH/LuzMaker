@@ -32,8 +32,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  data-readiness:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check weekly data readiness before building the site
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          heads=$(git ls-remote --heads origin changes-history)
+          if [ -z "$heads" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch origin changes-history:refs/remotes/origin/changes-history
+          git show origin/changes-history:manifest.json > /tmp/readiness-manifest.json
+          asset=$(python -c 'import json; print(json.load(open("/tmp/readiness-manifest.json"))["asset"])')
+          gh release download station-change-state --pattern "$asset" --dir /tmp/readiness-download
+          python - <<'PYTHON'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          manifest=json.loads(Path('/tmp/readiness-manifest.json').read_text())
+          asset=Path('/tmp/readiness-download')/manifest['asset']
+          assert hashlib.sha256(asset.read_bytes()).hexdigest()==manifest['sha256'], 'State checksum mismatch'
+          with zipfile.ZipFile(asset) as bundle:
+              index=json.loads(bundle.read('changes/index.json'))
+          ready=index.get('comparison')=='weekly'
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              print('ready='+str(ready).lower(),file=out)
+          if not ready:
+              print('::notice::Weekly station data is still being prepared. Keeping the current site; successful history completion triggers publication again.')
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
+                  print('Publication deferred: waiting for weekly station data. The existing site remains live. Successful completion of Build station change history automatically starts another publication.',file=summary)
+          PYTHON
+
+  build:
+    needs: data-readiness
+    if: needs.data-readiness.outputs.ready == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     permissions:
