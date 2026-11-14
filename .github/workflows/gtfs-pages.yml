@@ -113,6 +113,8 @@ jobs:
           assert hashlib.sha256((Path('/tmp/change-download')/m['asset']).read_bytes()).hexdigest()==m['sha256']
           PY
             python scripts/change_bundle.py restore /tmp/change-download/"$asset" /tmp/change-restored
+            # Keep the previous live site until the weekly data migration is ready.
+            python -c "import json; from pathlib import Path; assert json.loads(Path('/tmp/change-restored/changes/index.json').read_text()).get('comparison') == 'weekly', 'Waiting for weekly station data; history completion will trigger Pages again'"
             cp -R /tmp/change-restored/changes/. _site/data/changes/
           else
             echo '{"status":"awaiting-first-snapshot","stations":0}' > _site/data/changes/index.json

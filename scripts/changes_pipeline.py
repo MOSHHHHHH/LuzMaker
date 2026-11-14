@@ -25,7 +25,12 @@ from zoneinfo import ZoneInfo
 
 SOURCE = 'https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip'
 WEEK = 'monday tuesday wednesday thursday friday saturday sunday'.split()
-VERSION = 3
+VERSION = 4
+
+try:
+    from .weekly_changes import describe, summary
+except ImportError:
+    from weekly_changes import describe, summary
 
 
 def pack(value):
@@ -109,6 +114,7 @@ def create_state(db):
     CREATE TABLE line_shifts(line TEXT PRIMARY KEY,lo INTEGER,hi INTEGER);
     CREATE TABLE snapshots(station TEXT,line TEXT,profile TEXT,days TEXT,
       PRIMARY KEY(station,line,profile));
+    CREATE TABLE coverage(line TEXT,days TEXT,observed TEXT,PRIMARY KEY(line,observed));
     CREATE TABLE events(station TEXT,day TEXT,line TEXT,data TEXT,
       PRIMARY KEY(station,day,line));
     ''')
@@ -242,35 +248,6 @@ def on_day(values, idx):
     return next(((h, p) for h, (p, mask) in values.items() if mask & (1 << idx)), (None, None)) if idx >= 0 else (None, None)
 
 
-def event(before, after, day, line, observed, station, old_event, out):
-    ah, a = before
-    bh, b = after
-    kind = 'added' if a is None else 'removed' if b is None else 'route_changed' if a['routes'] != b['routes'] else 'schedule_changed'
-    item = dict(date=day, line=line, type=kind, detectedAt=observed,
-                id=digest([station, day, line, ah, bh, old_event.get('id')]),
-                revision=old_event.get('revision', 0) + 1)
-    if old_event:
-        item['supersedes'] = old_event['id']
-    for key, profile in [('before', a), ('after', b)]:
-        times = profile['departures'] if profile else []
-        gaps = [y-x for x,y in zip(times,times[1:])]
-        item[key] = dict(count=len(times), first=times[0] if times else None,
-                         last=times[-1] if times else None,
-                         meanInterval=round(sum(gaps)/len(gaps)) if gaps else None)
-    if kind in ('route_changed', 'added', 'removed'):
-        def sequences(profile):
-            return [json.loads(out.execute('SELECT data FROM routes WHERE id=?', (h,)).fetchone()[0]) for h in profile['routes']] if profile else []
-        old_routes, new_routes = sequences(a), sequences(b)
-        old_stops = {s[0]: s[1] for seq in old_routes for s in seq}
-        new_stops = {s[0]: s[1] for seq in new_routes for s in seq}
-        added_codes = sorted(new_stops.keys()-old_stops.keys()) if kind == 'route_changed' else [station] if kind == 'added' else []
-        removed_codes = sorted(old_stops.keys()-new_stops.keys()) if kind == 'route_changed' else [station] if kind == 'removed' else []
-        # Station-local absence does not prove the entire route was cancelled.
-        item.update(routes=b['routes'] if b else [], addedStops=added_codes,
-                    removedStops=[[k,old_stops.get(k,'')] for k in removed_codes])
-    return item
-
-
 def run(zip_path, state, output, today, observed=None, provenance=None):
     started = time.monotonic()
     observed = observed or datetime.now(ZoneInfo('Asia/Jerusalem')).isoformat(timespec='seconds')
@@ -289,12 +266,12 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
             if old.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                 raise ValueError('Corrupt historical state')
             old_meta = meta(old)
-            if old_meta.get('version') != VERSION:
+            if old_meta.get('version') not in (3, VERSION):
                 raise ValueError('Unsupported historical state schema; explicit migration required')
         raw, out = connect(tmp/'raw.db'), connect(tmp/'next.db')
         create_state(out)
         stats = build_raw(zip_path, raw, out, start, today)
-        end = date.fromisoformat(stats['end'])
+        end = max(date.fromisoformat(stats['end']), date.fromisoformat(old_meta.get('end', stats['end'])))
         if old:
             for key in ('routes','stops','trips','stopTimes'):
                 threshold = .8 if key in ('routes','stops') else .5
@@ -302,8 +279,6 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
                     raise ValueError('Suspicious feed shrinkage: ' + key + '; keeping last valid publication')
             # Prior route definitions are needed to describe removed stops.
             out.executemany('INSERT OR IGNORE INTO routes VALUES(?,?)', old.execute('SELECT * FROM routes'))
-            for station, day, line, data in old.execute('SELECT * FROM events WHERE day>=? AND day<=?', (start.isoformat(), end.isoformat())):
-                out.execute('INSERT INTO events VALUES(?,?,?,?)', (station, day, line, data))
         old_start = date.fromisoformat(old_meta.get('start', start.isoformat()))
         old_end = date.fromisoformat(old_meta.get('end', start.isoformat()))
         # Comparison coverage excludes absent dates beyond the feed's real horizon.
@@ -318,61 +293,67 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
         # Keep only complete transport dates. Partial edge dates cannot prove
         # additions/removals: they lack contributions from other service dates.
         allowed_by_line = {}
-        comparison_ranges = {}
         for line in fresh_shifts.keys() | old_shifts.keys():
-            lo,hi = bounds(line,fresh_shifts,service_start,service_end)
+            # Removed overnight journeys still require neighbouring source
+            # dates to prove absence at an edge. Use both shift ranges.
+            a=fresh_shifts.get(line,old_shifts.get(line,(0,0)))
+            b=old_shifts.get(line,a)
+            union={line:(min(a[0],b[0]),max(a[1],b[1]))}
+            lo,hi = bounds(line,union,service_start,service_end)
             lo,hi = max(start,lo),min(end,hi)
             allowed_by_line[line] = ((1 << ((hi-start).days+1))-1) ^ ((1 << ((lo-start).days))-1) if hi>=lo else 0
-            a = fresh_shifts.get(line,old_shifts.get(line,(0,0)))
-            b = old_shifts.get(line,fresh_shifts.get(line,(0,0)))
-            union = {line:(min(a[0],b[0]),max(a[1],b[1]))}
-            new_lo,new_hi = bounds(line,union,service_start,service_end)
-            old_lo,old_hi = bounds(line,union,old_service_start,old_service_end)
-            comparison_ranges[line] = (max(start,new_lo,old_lo),min(end,old_end,new_hi,old_hi))
+        # Coverage is independent of departures: a covered empty day is known
+        # no-service; an uncovered day must never become a cancellation.
+        coverage = {}
+        old_coverage = defaultdict(dict)
+        if old and old_meta.get('version') == VERSION:
+            for line, mask, stamp in old.execute('SELECT * FROM coverage'):
+                old_coverage[line][stamp] = int(mask,16)
+        elif old:
+            # Preserve v3 observations; seed coverage only for provable complete dates.
+            for line in old_shifts:
+                lo, hi = bounds(line,old_shifts,old_service_start,old_service_end)
+                lo, hi = max(old_start,lo), min(old_end,hi)
+                if hi >= lo:
+                    old_coverage[line][old_meta['updated']] = ((1 << ((hi-old_start).days+1))-1) ^ ((1 << ((lo-old_start).days))-1)
+        for line in allowed_by_line:
+            fresh = allowed_by_line[line]
+            records = {}
+            for stamp, mask in old_coverage.get(line,{}).items():
+                shift = (start-old_start).days
+                mask = mask >> shift if shift >= 0 else mask << -shift
+                mask &= ~fresh
+                if mask:
+                    records[stamp] = mask
+            if fresh:
+                records[observed] = records.get(observed,0) | fresh
+            coverage[line] = records
+            for stamp, mask in records.items():
+                out.execute('INSERT INTO coverage VALUES(?,?,?)',(line,format(mask,'x'),stamp))
         def complete_profiles(current):
             return {line:{h:[v,mask & allowed_by_line[line]] for h,(v,mask) in values.items()
                           if mask & allowed_by_line[line]} for line,values in current.items()}
-        total = 0
         visited = set()
         def consume(station, current):
-            nonlocal total
             visited.add(station)
             current = complete_profiles(current)
             previous = load_station(old, station) if old else {}
+            # Keep previous observations for EVERY date not fully covered by the
+            # latest publication, including future dates beyond a shorter feed.
+            for line, values in previous.items():
+                for h,(value,mask) in values.items():
+                    shift = (start-old_start).days
+                    retained = (mask >> shift if shift >= 0 else mask << -shift) & ~allowed_by_line.get(line,0)
+                    if retained:
+                        target = current.setdefault(line,{})
+                        if h in target:
+                            target[h][1] |= retained
+                        else:
+                            target[h] = [value,retained]
             for line, values in current.items():
                 for h, (value, mask) in values.items():
                     out.execute('INSERT OR IGNORE INTO profiles VALUES(?,?)', (h, pack(value)))
-                    out.execute('INSERT INTO snapshots VALUES(?,?,?,?)', (station, line, h, format(mask,'x')))
-            if not old:
-                return
-            for line in previous.keys() | current.keys():
-                day,comparison_end = comparison_ranges[line]
-                while day <= comparison_end:
-                    a = on_day(previous.get(line, {}), (day-old_start).days)
-                    b = on_day(current.get(line, {}), (day-start).days)
-                    if a[0] != b[0]:
-                        prior = out.execute('SELECT data FROM events WHERE station=? AND day=? AND line=?', (station, day.isoformat(), line)).fetchone()
-                        item = event(a,b,day.isoformat(),line,observed,station,json.loads(prior[0]) if prior else {},out)
-                        out.execute('INSERT OR REPLACE INTO events VALUES(?,?,?,?)', (station,day.isoformat(),line,pack(item)))
-                        total += 1
-                    day += timedelta(days=1)
-            # Preserve observations from historical dates no longer included by the
-            # current publisher. They are evidence, not cancellations.
-            for line, values in previous.items():
-                for h,(value,mask) in values.items():
-                    retained = 0
-                    while mask:
-                        bit = mask & -mask
-                        day = old_start + timedelta(days=bit.bit_length()-1)
-                        new_lo,_ = bounds(line,fresh_shifts,service_start,service_end)
-                        if start <= day < new_lo:
-                            retained |= 1 << (day-start).days
-                        mask -= bit
-                    if retained:
-                        out.execute('INSERT OR IGNORE INTO profiles VALUES(?,?)', (h,pack(value)))
-                        row = out.execute('SELECT days FROM snapshots WHERE station=? AND line=? AND profile=?',(station,line,h)).fetchone()
-                        retained |= int(row[0],16) if row else 0
-                        out.execute('INSERT OR REPLACE INTO snapshots VALUES(?,?,?,?)',(station,line,h,format(retained,'x')))
+                    out.execute('INSERT INTO snapshots VALUES(?,?,?,?)', (station,line,h,format(mask,'x')))
         for station, current in station_profiles(raw, start, end):
             consume(station, current)
             if len(visited) % 5000 == 0:
@@ -390,15 +371,63 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
             raise ValueError('Suspicious loss of active profiles; preserving previous dataset')
         stage = tmp/'published'
         (stage/'stations').mkdir(parents=True)
-        count = 0
-        for station, events in itertools.groupby(out.execute('SELECT station,data FROM events ORDER BY station,day,line'),lambda r:r[0]):
-            items = [json.loads(r[1]) for r in events]
-            refs = {h for item in items for h in item.get('routes', [])}
-            definitions = {h: json.loads(out.execute('SELECT data FROM routes WHERE id=?', (h,)).fetchone()[0]) for h in refs}
-            data = {'station': station, 'changes': items, 'routeDefinitions': definitions}
+        (stage/'details').mkdir()
+        count = total = 0
+        station_ids = [r[0] for r in out.execute('SELECT DISTINCT station FROM snapshots')]
+        for station in station_ids:
+            current = load_station(out,station)
+            items, details, refs = [], {}, set()
+            for line, values in current.items():
+                records = coverage.get(line,{})
+                covered = 0
+                for mask in records.values():
+                    covered |= mask
+                pairs = covered & (covered << 7)
+                while pairs:
+                    bit = pairs & -pairs
+                    idx = bit.bit_length()-1
+                    pairs -= bit
+                    ah,a = on_day(values,idx-7)
+                    bh,b = on_day(values,idx)
+                    if ah == bh:
+                        continue
+                    day = start + timedelta(days=idx)
+                    schedule, route, tags = describe(a,b)
+                    before_routes, after_routes = (a or {}).get('routes',[]), (b or {}).get('routes',[])
+                    def sequences(ids):
+                        return [json.loads(out.execute('SELECT data FROM routes WHERE id=?',(h,)).fetchone()[0]) for h in ids]
+                    old_routes,new_routes = sequences(before_routes),sequences(after_routes)
+                    old_stops = {s[0]:s[1] for seq in old_routes for s in seq}
+                    new_stops = {s[0]:s[1] for seq in new_routes for s in seq}
+                    added = sorted(new_stops.keys()-old_stops.keys())
+                    removed = [[k,old_stops[k]] for k in sorted(old_stops.keys()-new_stops.keys())]
+                    if route:
+                        if added: tags.append('נוספו תחנות במסלול')
+                        if removed: tags.append('הוסרו תחנות מהמסלול')
+                        if not added and not removed: tags.append('השתנה סדר התחנות במסלול')
+                    def stamp(day_idx):
+                        return next(t for t,m in records.items() if m & (1 << day_idx))
+                    item = dict(id=digest([station,line,day.isoformat(),ah,bh]),date=day.isoformat(),
+                                comparisonDate=(day-timedelta(days=7)).isoformat(),line=line,
+                                type='added' if a is None else 'removed' if b is None else 'route_changed' if route else 'schedule_changed',
+                                scheduleChanged=schedule,routeChanged=route,tags=tags,
+                                before=summary(a),after=summary(b),beforeProfile=ah,afterProfile=bh,
+                                beforeRoutes=before_routes,routes=after_routes,addedStops=added,removedStops=removed,
+                                beforePublication=stamp(idx-7),afterPublication=stamp(idx),detectedAt=observed)
+                    path = new_routes or old_routes
+                    item['routeLabel'] = path[0][0][1]+' ← '+path[0][-1][1] if path else ''
+                    for h,profile in [(ah,a),(bh,b)]:
+                        if h: details[h] = profile
+                    refs.update(before_routes+after_routes)
+                    items.append(item)
+                    out.execute('INSERT INTO events VALUES(?,?,?,?)',(station,day.isoformat(),line,pack(item)))
+            definitions = {h:json.loads(out.execute('SELECT data FROM routes WHERE id=?',(h,)).fetchone()[0]) for h in refs}
+            data = dict(station=station,changes=items,comparison='weekly',coverageAvailable=any(coverage.get(line) for line in current))
             name = hashlib.sha256(station.encode()).hexdigest()[:20]+'.json'
             (stage/'stations'/name).write_text(pack(data),encoding='utf-8')
+            (stage/'details'/name).write_text(pack(dict(station=station,profiles=details,routeDefinitions=definitions)),encoding='utf-8')
             count += 1
+            total += len(items)
         observed_mask = 0
         for (mask,) in out.execute('SELECT days FROM snapshots'):
             observed_mask |= int(mask,16)
@@ -410,7 +439,7 @@ def run(zip_path, state, output, today, observed=None, provenance=None):
         if provenance and provenance not in sources:
             sources.append(provenance)
         coverage_start = (start + timedelta(days=(observed_mask & -observed_mask).bit_length()-1)).isoformat()
-        metadata = dict(archiveSnapshots=sources, version=VERSION,start=start.isoformat(),end=end.isoformat(),
+        metadata = dict(comparison='weekly',archiveSnapshots=sources, version=VERSION,start=start.isoformat(),end=end.isoformat(),
                         firstCovered=coverage_start,updated=observed,stations=count,
                         baselineObservedAt=old_meta.get('baselineObservedAt',observed),
                         historyStart=coverage_start,

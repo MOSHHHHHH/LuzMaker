@@ -1,8 +1,9 @@
 """Bootstrap historical service coverage from two trustworthy Open Bus snapshots.
 
-The first snapshot is a baseline, not an invented change. Sampling the start of
-our rolling month and yesterday recovers historical schedules but is NOT a full
-daily publication history. Any detected change is dated at ingestion time.
+Sampling the start of our rolling month and yesterday recovers available
+schedules for weekly comparisons, not a full daily publication history. Each
+transport day is compared with the same weekday one week later; acquisition
+timestamps do not claim an original publication time.
 Failure to access an archive is recorded explicitly; the official-feed build
 can initialize normally. A malformed existing state is never silently reset.
 """

@@ -12,15 +12,26 @@ from pathlib import Path
 
 def validate(root):
     index=json.loads((root/'changes/index.json').read_text())
-    assert index['version']==3 and index['start']<=index['end'] and index['stats']['trips']>0
+    assert index['version'] in (3,4) and index['start']<=index['end'] and index['stats']['trips']>0
     files=list((root/'changes/stations').glob('*.json'))
     assert len(files)==index['stations']
     count=0
     for p in files:
         data=json.loads(p.read_text())
         assert p.stem==hashlib.sha256(data['station'].encode()).hexdigest()[:20]
+        details = None
+        if index['version'] == 4:
+            assert index['comparison'] == data['comparison'] == 'weekly'
+            details=json.loads((root/'changes/details'/p.name).read_text())
+            assert details['station'] == data['station']
         for e in data['changes']:
             assert index['start']<=e['date']<=index['end'] and e['id'] and e['detectedAt']
+            if details is not None:
+                from datetime import date
+                assert (date.fromisoformat(e['date'])-date.fromisoformat(e['comparisonDate'])).days==7
+                for key in ('beforeProfile','afterProfile'):
+                    assert e[key] is None or e[key] in details['profiles']
+                assert set(e['beforeRoutes']+e['routes']) <= details['routeDefinitions'].keys()
             count+=1
     assert count==index['stats']['events']
     with tempfile.TemporaryDirectory() as tmp:

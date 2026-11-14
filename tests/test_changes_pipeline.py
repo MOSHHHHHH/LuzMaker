@@ -42,27 +42,36 @@ class PipelineTests(unittest.TestCase):
     def events(self,station='123'):
         path=self.output/'stations'/(hashlib.sha256(station.encode()).hexdigest()[:20]+'.json')
         return json.loads(path.read_text())['changes'] if path.exists() else []
-    def test_baseline_repeated_run_and_new_dates_are_not_changes(self):
-        first=self.process();second=self.process(date(2026,11,14))
-        self.assertEqual(first['stats']['events'],0);self.assertEqual(second['stats']['events'],0)
+    def test_baseline_includes_weekly_exception_and_resumption(self):
+        first=self.process();events=self.events();self.process(date(2026,11,14))
+        self.assertEqual({(e['date'],e['type']) for e in events},{('2026-11-14','removed'),('2026-11-21','added')})
+        self.assertEqual(first['comparison'],'weekly')
+        self.assertTrue(all((date.fromisoformat(e['date'])-date.fromisoformat(e['comparisonDate'])).days==7 for e in events))
         validate(self.root)
-    def test_schedule_revision_revert_and_duplicate_suppression(self):
+    def test_latest_publication_replaces_both_days_without_revision_alert(self):
         self.process();make_zip(self.zip,departure='08:02:00');self.process()
-        first=self.events()[0];self.assertEqual(first['type'],'schedule_changed')
-        self.assertEqual(first['after']['first'],8*3600+120)
-        self.process();self.assertEqual(first,self.events()[0])
-        make_zip(self.zip);self.process();revert=self.events()[0]
-        self.assertEqual(revert['revision'],2);self.assertEqual(revert['supersedes'],first['id'])
-        self.assertNotEqual(revert['id'],first['id']);self.assertEqual(revert['after']['first'],8*3600)
-    def test_route_added_removed_stops(self):
-        self.process();make_zip(self.zip,extra_stop=True);self.process()
-        self.assertEqual(self.events()[0]['type'],'route_changed')
-        self.assertEqual(self.events()[0]['addedStops'],['125'])
-        self.assertEqual(self.events('125')[0]['type'],'added')
+        self.assertFalse(any(e['type']=='schedule_changed' for e in self.events()))
+        self.assertEqual(self.events()[0]['before']['first'],8*3600+120)
         make_zip(self.zip);self.process()
-        self.assertIn(['125','Third'],self.events()[0]['removedStops'])
-        self.assertEqual(self.events('125')[0]['type'],'removed')
-        self.assertEqual(self.events('125')[0]['removedStops'],[['125','Third']])
+        self.assertEqual(self.events()[0]['before']['first'],8*3600)
+        self.assertNotIn('revision',self.events()[0])
+    def test_weekly_route_change_has_both_sequences_and_details(self):
+        make_zip(self.zip,extra_stop=True)
+        def change(t):
+            t['calendar_dates.txt']=[]
+            base=t['calendar.txt'][0];base['end_date']='20261116'
+            t['calendar.txt'].append(dict(base,service_id='next',start_date='20261117',end_date='20261231'))
+            t['trips.txt'].append(dict(t['trips.txt'][0],service_id='next',trip_id='next'))
+            original=list(t['stop_times.txt']);t['stop_times.txt']=[r for r in original if r['stop_id']!='s3']
+            t['stop_times.txt'] += [dict(r,trip_id='next') for r in original]
+        rewrite(self.zip,change);self.process()
+        event=next(e for e in self.events() if e['date']=='2026-11-17')
+        self.assertTrue(event['routeChanged']);self.assertFalse(event['scheduleChanged'])
+        self.assertEqual(event['addedStops'],['125'])
+        self.assertNotEqual(event['beforeRoutes'],event['routes'])
+        details=json.loads((self.output/'details'/(hashlib.sha256(b'123').hexdigest()[:20]+'.json')).read_text())
+        self.assertEqual(details['profiles'][event['afterProfile']]['departures'],[28800])
+        self.assertTrue(set(event['beforeRoutes']+event['routes'])<=details['routeDefinitions'].keys())
     def test_identifier_churn_and_names_do_not_change_identity(self):
         self.process()
         def transform(t):
@@ -72,7 +81,7 @@ class PipelineTests(unittest.TestCase):
             for table in ['stops.txt','stop_times.txt']:
                 for r in t[table]:r['stop_id']='new'+r['stop_id']
             t['stops.txt'][0]['stop_name']='Renamed'
-        rewrite(self.zip,transform);self.process();self.assertEqual(self.events(),[])
+        rewrite(self.zip,transform);self.process();self.assertFalse(any(e['type']=='schedule_changed' or e['routeChanged'] for e in self.events()))
     def test_overnight_0230_and_2630_same_transport_day(self):
         make_zip(self.zip,departure='02:30:00');self.process()
         def transform(t):
@@ -84,7 +93,7 @@ class PipelineTests(unittest.TestCase):
         rewrite(self.zip,transform);self.process()
         # Second stop remains 08:10 and intentionally changes dates at boundaries;
         # the first stop has precisely the same transport-day departures.
-        self.assertEqual(self.events(),[])
+        self.assertFalse(any(e['type']=='schedule_changed' or e['routeChanged'] for e in self.events()))
     def test_weekdays_and_exceptions_are_not_adjacent_day_changes(self):
         def transform(t):
             t['calendar.txt'][0]['saturday']='0'
@@ -113,16 +122,15 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(previous_month(date(2026,3,31)),date(2026,2,28))
         self.process();make_zip(self.zip,departure='08:02:00');self.process();self.process(date(2026,12,15))
         self.assertTrue(all(e['date']>='2026-11-15' for e in self.events()))
-    def test_new_variant_and_cancelled_variant(self):
+    def test_new_variant_is_not_a_publication_alert(self):
         self.process()
         def add_variant(t):
             t['routes.txt'].append(dict(t['routes.txt'][0],route_id='r2',route_short_name='6'))
             t['trips.txt'].append(dict(t['trips.txt'][0],trip_id='t2',route_id='r2'))
             t['stop_times.txt'].extend([dict(r,trip_id='t2') for r in list(t['stop_times.txt'])])
         rewrite(self.zip,add_variant);self.process()
-        self.assertTrue(all(e['type']=='added' for e in self.events()))
-        make_zip(self.zip);self.process()
-        self.assertTrue(all(e['type']=='removed' for e in self.events()))
+        self.assertEqual({e['date'] for e in self.events()},{'2026-11-14','2026-11-21'})
+        self.assertEqual(len(self.events()),4)
     def test_same_line_distinct_official_variants_are_not_merged(self):
         def variants(t):
             t['routes.txt'][0]['route_desc']='100-1-A'
@@ -134,18 +142,18 @@ class PipelineTests(unittest.TestCase):
             for r in t['stop_times.txt']:
                 if r['trip_id']=='t2' and r['stop_id']=='s1':r['departure_time']='09:00:00'
         rewrite(self.zip,edit);self.process()
-        self.assertEqual({json.loads(e['line'])[3] for e in self.events()},{'100-1-B'})
-    def test_changed_exception_compares_only_the_affected_date(self):
+        self.assertEqual({json.loads(e['line'])[3] for e in self.events()},{'100-1-A','100-1-B'})
+        self.assertFalse(any(e['type']=='schedule_changed' for e in self.events()))
+    def test_latest_exception_correction_removes_outdated_alerts(self):
         self.process()
         rewrite(self.zip,lambda t:t['calendar_dates.txt'][0].update(exception_type='1'))
-        self.process();self.assertEqual({e['date'] for e in self.events()},{'2026-11-14'})
-        self.assertTrue(all(e['type']=='added' for e in self.events()))
+        self.process();self.assertEqual(self.events(),[])
     def test_partial_transport_dates_at_feed_boundaries_are_not_changes(self):
         make_zip(self.zip,departure='02:30:00');self.process()
         rewrite(self.zip,lambda t:t['calendar.txt'][0].update(start_date='20261114',end_date='20261230'))
         self.process(date(2026,11,14))
-        self.assertEqual(self.events(),[])
-        self.assertEqual(self.events('124'),[])
+        self.assertFalse(any(e['type']=='schedule_changed' or e['routeChanged'] for e in self.events()))
+        self.assertFalse(any(e['type']=='schedule_changed' for e in self.events('124')))
     def test_corrupt_historical_state_is_not_silently_reinitialized(self):
         self.process();index=(self.output/'index.json').read_bytes()
         self.state.write_bytes(b'corrupt')
