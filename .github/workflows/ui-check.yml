@@ -1,5 +1,16 @@
 name: UI and GTFS regression checks
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'changes.html'
+      - 'pdf.js'
+      - 'assets/**'
+      - 'packing.js'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
   push:
     branches: [main, feature/station-change-detector, feature/station-tools-and-pdf]
     paths:

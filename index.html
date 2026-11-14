@@ -182,13 +182,14 @@ input,select{min-height:46px;border-radius:12px}
  .print-sheet:first-child,.print-sheet.print-first-visible{break-before:auto!important;page-break-before:auto!important}
 }
 .station-pick{padding:12px;background:#f5f8fd;border-radius:10px;margin-top:8px}.station-pick fieldset{border:1px solid #bdcde1;border-radius:8px;margin:12px 0}.station-options{max-height:330px;overflow:auto}.station-option{display:flex;align-items:flex-start;gap:10px;padding:10px;border-bottom:1px solid #dbe5f3}.station-option[hidden]{display:none}.station-option input{width:20px;min-height:20px;flex:none;margin-top:4px}.line-entry summary{cursor:pointer;color:#155dc1;padding:10px 0}.station-pick button{margin-top:10px}
+.unified-search{position:relative;margin-bottom:20px}.group-search-box{position:relative}#groupSuggestions{position:absolute;top:100%;left:0;right:0;z-index:10;list-style:none;margin:0;padding:6px;max-height:360px;overflow:auto;border:1px solid #b8c9df;background:#fff;border-radius:12px;box-shadow:0 10px 25px #172b4b20}#groupSuggestions[hidden]{display:none}#groupSuggestions button{display:block;width:100%;text-align:right;border:0;box-shadow:none}#groupSuggestions button[aria-selected=true]{background:#eaf2ff}#groupSuggestions small{display:block;color:#52667f;margin-top:4px}.search-selection{background:#edf5ff;border-right:4px solid #155dc1;border-radius:10px;padding:12px;overflow-wrap:anywhere}.route-title span{display:block}.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid>div{min-width:0}.route-cards{max-height:420px}.editor-save{background:#fff;padding:12px 0;border-top:1px solid #dbe5f3}button:disabled{cursor:default;opacity:.55}button.primary:disabled{cursor:wait}@media(max-width:600px){#editor .form-grid{grid-template-columns:1fr}.editor-save{position:sticky;bottom:0;z-index:3;padding:12px;box-shadow:0 -5px 18px #172b4b12;margin-right:-12px;margin-left:-12px;border-radius:12px}#editor{padding-bottom:12px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header class="header no-print">
  <div class="logo"><img src="./logo.svg" class="site-logo" alt="" width="54" height="54"><div><h1>לו״ז מייקר <span class="pill">בטא</span></h1><span class="muted small">לוחות זמנים אישיים לתחבורה ציבורית</span></div></div>
- <div class="row"><a href="./changes.html">מזהה שינויים בתחנות</a><button id="helpBtn">עזרה</button><a href="https://docs.google.com/forms/d/e/1FAIpQLSfMFmC7esFcy0zpMIzT0kk-CluXSRKBRBIVHNPxKRlUW_YZUA/viewform?usp=dialog" target="_blank" rel="noopener">משוב ↗</a></div>
+ <div class="row"><a href="./changes.html">מה משתנה בתחנה שלך?</a><button id="helpBtn">עזרה</button><a href="https://docs.google.com/forms/d/e/1FAIpQLSfMFmC7esFcy0zpMIzT0kk-CluXSRKBRBIVHNPxKRlUW_YZUA/viewform?usp=dialog" target="_blank" rel="noopener">משוב ↗</a></div>
 </header>
 <div class="notice no-print" id="sourceNotice" role="status">בודק זמינות נתוני תחבורה...</div>
 <div class="calendar-preference no-print" role="group" aria-label="אופן הצגת תאריכים">
@@ -207,10 +208,11 @@ input,select{min-height:46px;border-radius:12px}
  <div class="row between"><h2 id="editorTitle">קבוצת קווים חדשה</h2><button id="cancelEdit">חזרה</button></div>
  <label for="groupName">שם הקבוצה</label><input id="groupName" maxlength="70" placeholder="למשל: קווים מביתר לתל אביב">
  <h3 style="margin-top:22px">הוספת קו ותחנה</h3>
- <div class="form-grid"><div><label for="lineNumber">מספר קו</label><input id="lineNumber" inputmode="text" autocomplete="off" placeholder="לדוגמה: 480"><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint" class="muted small">חפשו מספר קו כפי שהוא מופיע בנתונים, כולל אות אם קיימת.</div></div><div><label id="routePickerLabel">מסלול</label><select id="routeSelect" class="sr-only-route" tabindex="-1" aria-hidden="true" disabled><option>תחילה בחר קו</option></select><div id="chosenRoute" class="chosen-route hidden" aria-live="polite"></div><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
+ <div class="unified-search"><label for="groupSearch">חפש מספר קו, מספר תחנה או שם תחנה</label><div class="group-search-box"><input id="groupSearch" type="search" autocomplete="off" placeholder="למשל: 480, 20740 או תחנה מרכזית" role="combobox" aria-expanded="false" aria-controls="groupSuggestions" aria-autocomplete="list"><ul id="groupSuggestions" role="listbox" aria-label="קווים ותחנות" hidden></ul></div><p id="groupSearchStatus" class="muted small" role="status"></p><div id="searchSelection" class="search-selection hidden"></div></div>
+ <div class="form-grid"><div class="hidden"><label for="lineNumber">מספר קו שנבחר</label><input id="lineNumber" autocomplete="off"><div id="lineSuggestions" class="suggestions" aria-live="polite"></div><div id="lineHint"></div></div><div><label id="routePickerLabel">מסלול</label><select id="routeSelect" class="sr-only-route" tabindex="-1" aria-hidden="true" disabled><option>תחילה בחר קו</option></select><div id="chosenRoute" class="chosen-route hidden" aria-live="polite"></div><input id="routeFilter" type="search" disabled placeholder="סנן מסלולים לפי עיר או מפעיל" aria-label="חיפוש מסלולים" style="margin-top:6px"><div id="routeCards" class="route-cards" aria-label="מסלולים זמינים"></div></div><div><label for="stopSelect">תחנה</label><select id="stopSelect" disabled><option>תחילה בחר מסלול</option></select><input id="stopFilter" type="search" disabled placeholder="סנן תחנות לפי שם או מספר" aria-label="חיפוש תחנות" style="margin-top:6px"></div></div>
  <div class="actions" style="margin-top:15px"><button id="addLine" class="primary">＋ הוסף לקבוצה</button><span class="muted small" id="addStatus" aria-live="polite"></span></div>
  <div id="selectedLines" aria-live="polite"></div><div class="notice hidden" id="editorError" role="alert"></div>
- <div class="actions" style="margin-top:20px"><button class="primary" id="saveGroup">שמור והמשך ליצירת לו״ז ←</button><button id="cancelEdit2">ביטול</button></div>
+ <div class="actions editor-save" style="margin-top:20px"><button class="primary" id="saveGroup">שמור והמשך ליצירת לו״ז ←</button><button id="cancelEdit2">ביטול</button></div>
 </section>
 <section class="panel no-print hidden" id="generator">
  <div class="row between"><h2 id="generatorTitle">יצירת לוח זמנים</h2><button id="backGen">חזרה</button></div>
@@ -273,7 +275,7 @@ function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&
 function notify(message){$("sourceNotice").textContent=message}
 function show(id){["home","editor","generator","results"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function dateISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}
-function dayDate(n){const d=new Date();if(d.getHours()<3)d.setDate(d.getDate()-1);d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return d}
+function dayDate(n){const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const part=type=>parts.find(p=>p.type===type).value;const d=new Date(Number(part('year')),Number(part('month'))-1,Number(part('day')),12);d.setDate(d.getDate()+n-(Number(part('hour'))<3?1:0));return d}
 // Work with civil noon to avoid timezone drift across daylight-saving transitions.
 // The platform's Hebrew calendar provides leap years and Adar I/II without a third-party service.
 // ICU/Intl calculates the Hebrew calendar date; our formatter only renders its
@@ -462,13 +464,15 @@ function agencyHue(name){
  let h=0;for(const c of String(name||""))h=(h*31+c.charCodeAt(0))%360;
  return "hsl("+h+" 55% 36%)";
 }
+function routeDirection(route){return String(route.direction??"")}
 function renderRouteCards(routes){
  $("routeCards").innerHTML=routes.map(r=>{
   const [from,to]=routeParts(r),agency=r.agency||"מפעיל לא ידוע";
   return '<button type="button" class="route-card" data-route="'+r.i+'" style="--operator:'+agencyHue(agency)+'" aria-pressed="false">'+
   '<span class="route-card-top"><span class="operator-chip">'+operatorBrandHtml(agency,r.agencyId)+'</span><span class="muted small">'+(r.stops?.length||0)+' תחנות</span></span>'+
-  '<strong class="route-title">'+safe(from)+(to?' <span aria-hidden="true">←</span> '+safe(to):"")+'</strong>'+
-  '<span class="muted small">בחר מסלול</span></button>';
+  '<strong class="route-title"><span>מוצא: '+safe(from)+'</span>'+(to?'<span>יעד: '+safe(to)+'</span>':'')+'</strong>'+
+  (r.alternative&&!['#','0'].includes(r.alternative)?'<span class="pill">חלופה '+safe(r.alternative)+'</span>':'')+
+  '<span class="muted small">'+(['0','1'].includes(routeDirection(r))?'כיוון '+(Number(routeDirection(r))+1)+' · ':'')+'בחר מסלול</span></button>';
  }).join("");
  highlightRouteCards();
 }
@@ -485,7 +489,7 @@ function collapseRoutePicker(){
  if(index==="")return;
  const route=cache.get(actual)?.routes[Number(index)];
  if(!route)return;
- $("chosenRoute").innerHTML='<strong>מסלול נבחר: '+safe(routeLabel(route))+'</strong><button type="button" id="changeRoute">שנה מסלול</button>';
+ $("chosenRoute").innerHTML='<strong>מסלול נבחר: קו '+safe(actual)+' · '+safe(routeLabel(route))+'</strong><button type="button" id="changeRoute">שנה מסלול</button>';
  $("chosenRoute").classList.remove("hidden");
  $("routeCards").classList.add("hidden");
  $("routeFilter").classList.add("hidden");
@@ -509,7 +513,7 @@ function editGroup(id){
  $("editorTitle").textContent=g?"עריכת קבוצת קווים":"קבוצת קווים חדשה";
  $("groupName").value=g?.name||"";
  $("lineNumber").value="";lastLineLookup=null;closedSuggestionsFor=null;resetRoutePicker();$("routeCards").innerHTML="";$("routeSelect").innerHTML="<option>תחילה בחר קו</option>";$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("addStatus").textContent="";editorMessage("");renderLineSuggestions();
- renderSelected();show("editor")
+ resetUnifiedSearch();editorBaseline=JSON.stringify([$("groupName").value,working]);renderSelected();show("editor")
 }
 const stationChoiceCache=new Map(),stationChoiceLists=new WeakMap();
 function renderSelected(){
@@ -549,11 +553,69 @@ function addStationChoices(index){
  for(const row of selected)if(!working.some(l=>l.routeId===row.routeId&&(l.stopCode===row.stopCode||l.stopId===row.stopId||row.stopIds.includes(l.stopId)))){working.push({...row});count++}
  renderSelected();editorMessage("");$("addStatus").textContent="נוספו "+count+" קווים מהתחנה ✓";
 }
+// Public station codes stay independent of station names and platform IDs.
+let searchDirectory=null,searchRequest=0,searchTimer,searchMatches=[],searchActive=-1,selectedStation=null,stationRoutes=[],editorBaseline='';
+function searchNormal(value){return String(value).normalize('NFKD').replace(/\p{M}/gu,'').replace(/[״׳'".,/\\-]/g,' ').replace(/(^|\s)(?:תחנה|תחנת|ת)(?=\s|$)/g,' ').replace(/\s+/g,' ').trim().toLocaleLowerCase('he')}
+function closeGroupSuggestions(){searchMatches=[];searchActive=-1;$("groupSuggestions").hidden=true;$("groupSearch").setAttribute('aria-expanded','false');$("groupSearch").removeAttribute?.('aria-activedescendant')}
+function resetUnifiedSearch(){searchRequest++;selectedStation=null;stationRoutes=[];$("groupSearch").value='';$("groupSearchStatus").textContent='';$("searchSelection").classList.add('hidden');closeGroupSuggestions()}
+async function directory(){if(!searchDirectory)searchDirectory=fetch('./data/station-search.json',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('לא ניתן לטעון תחנות. נסו שוב.');const data=await r.json();if(!Array.isArray(data.stops))throw Error('נתוני תחנות אינם תקינים.');return data}).catch(e=>{searchDirectory=null;throw e});return searchDirectory}
+async function searchGroup(){
+ const query=$("groupSearch").value.trim(),request=++searchRequest;closeGroupSuggestions();if(!query)return;
+ $("groupSearchStatus").textContent='מחפש…';
+ const numeric=/^\d+$/.test(query);const numbers=numeric?[...new Set([...lineMatches(query),...catalog.lines.map(row=>row[0]).filter(number=>baseLine(number)?.startsWith(query))])]:[];const lines=numbers.map(number=>({kind:'line',number}));
+ try{
+  const data=await directory();if(request!==searchRequest||$("groupSearch").value.trim()!==query)return;
+  const terms=searchNormal(query).split(' ').filter(Boolean);if(!terms.length){paintGroupMatches(lines);$("groupSearchStatus").textContent='הוסיפו שם תחנה או עיר כדי למקד את החיפוש.';return}
+  const stops=query.length<2?[]:data.stops.filter(row=>numeric?row[0].startsWith(query):terms.every(t=>searchNormal(row[1]+' '+(data.cities?.[row[2]]||'')).includes(t))).sort((a,b)=>(a[0]===query?-1:0)-(b[0]===query?-1:0)).slice(0,20).map(row=>({kind:'station',code:row[0],name:row[1],city:data.cities?.[row[2]]||''}));
+  paintGroupMatches([...lines.slice(0,18),...stops]);
+ }catch(error){if(request!==searchRequest)return;if(lines.length){paintGroupMatches(lines.slice(0,18));$("groupSearchStatus").textContent='חיפוש תחנות אינו זמין; מוצגים קווים בלבד.'}else $("groupSearchStatus").textContent=error.message}
+}
+function paintGroupMatches(matches){
+ searchMatches=matches;const box=$("groupSuggestions");box.replaceChildren();
+ for(const [i,row] of matches.entries()){const li=document.createElement('li');li.setAttribute('role','presentation');const b=document.createElement('button');b.type='button';b.id='group-option-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');b.textContent=row.kind==='line'?'קו '+row.number:row.name;const small=document.createElement('small');small.textContent=row.kind==='line'?'קו · בחרו מסלול ותחנה':'תחנה '+row.code+(row.city?' · '+row.city:'');b.append(small);b.onclick=()=>selectGroupMatch(i);li.append(b);box.append(li)}
+ box.hidden=!matches.length;$("groupSearch").setAttribute('aria-expanded',String(!!matches.length));$("groupSearchStatus").textContent=matches.length?'בחרו קו או תחנה מהרשימה. הוסיפו עיר או ספרות למיקוד.':'לא נמצאו תוצאות. נסו מספר או חלק אחר משם התחנה.';
+}
+async function selectGroupMatch(i){
+ const match=searchMatches[i];if(!match)return;closeGroupSuggestions();const request=++searchRequest;selectedStation=null;stationRoutes=[];$("groupSearchStatus").textContent='טוען אפשרויות…';$("routeFilter").value='';
+ $("lineNumber").value='';lastLineLookup=null;await chooseLine();
+ $("searchSelection").classList.remove('hidden');$("searchSelection").textContent=match.kind==='line'?'קו שנבחר: '+match.number:'תחנה שנבחרה: '+match.name+' · '+match.code+(match.city?' · '+match.city:'');
+ if(match.kind==='line'){$("groupSearch").value=match.number;$("lineNumber").value=match.number;await chooseLine();if(request===searchRequest)$("groupSearchStatus").textContent='בחרו מסלול ותחנה לקו שנבחר.';return}
+ selectedStation=match;$("groupSearch").value=match.name+' · '+match.code;
+ try{
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(match.code));const name=Array.from(new Uint8Array(bytes)).map(v=>v.toString(16).padStart(2,'0')).join('').slice(0,20);
+  const response=await fetch('./data/stations/'+name+'.json',{cache:'no-store'});if(!response.ok)throw Error('לא ניתן לטעון מסלולים לתחנה. נסו לבחור שוב.');const data=await response.json();
+  if(request!==searchRequest)return;if(data.code!==match.code||data.updated!==catalog.updated||data.start!==catalog.start)throw Error('נתוני התחנה עודכנו. רעננו את העמוד.');
+  const numbers=[...new Set(data.routes.map(r=>r[0]))],loaded=[];
+  for(let n=0;n<numbers.length;n+=4){if(request!==searchRequest)return;loaded.push(...await Promise.all(numbers.slice(n,n+4).map(async number=>({number,data:await getLine(number)}))))}
+  if(request!==searchRequest)return;
+  stationRoutes=loaded.flatMap(({number,data})=>data.routes.map((route,ri)=>({number,route,ri})).filter(row=>row.route.stops.some(stop=>String(stop.code||stop.id)===match.code)));
+  $("routeFilter").disabled=false;renderStationRoutes();$("stopSelect").innerHTML='<option value="">'+safe(match.name)+' · '+safe(match.code)+'</option>';$("stopFilter").disabled=true;
+  $("groupSearchStatus").textContent=stationRoutes.length?'בחרו מסלול העובר בתחנה שנבחרה.':'אין מסלולים זמינים בתחנה בטווח הנתונים.';
+ }catch(error){if(request===searchRequest){editorMessage(error.message);$("groupSearchStatus").textContent=error.message}}
+}
+function renderStationRoutes(){
+ const q=$("routeFilter").value.trim().toLocaleLowerCase('he');const rows=stationRoutes.map((row,i)=>({...row,i})).filter(row=>!q||[row.number,routeLabel(row.route),row.route.agency].some(s=>String(s||'').toLocaleLowerCase('he').includes(q)));
+ $("routeCards").classList.remove('hidden');$("routeCards").innerHTML=rows.map(row=>{const [from,to]=routeParts(row.route);return '<button type="button" class="route-card" data-route="'+row.i+'" aria-pressed="'+String(currentLine()===row.number&&$("routeSelect").value===String(row.ri))+'"><span class="route-card-top"><strong class="line-number">'+safe(row.number)+'</strong><span class="operator-chip">'+safe(row.route.agency||'')+'</span></span><strong class="route-title"><span>מוצא: '+safe(from)+'</span><span>יעד: '+safe(to)+'</span></strong>'+(row.route.alternative&&!['#','0'].includes(row.route.alternative)?'<span class="small">חלופה '+safe(row.route.alternative)+'</span>':'')+'<span class="muted small">תחנה '+safe(selectedStation.code)+(['0','1'].includes(routeDirection(row.route))?' · כיוון '+(Number(routeDirection(row.route))+1):'')+' · בחר מסלול</span></button>'}).join('')||'<p class="muted">אין מסלולים התואמים לסינון.</p>';
+}
+async function chooseStationRoute(i){
+ const row=stationRoutes[i],station=selectedStation;if(!row||!station)return;
+ $("lineNumber").value=row.number;lastLineLookup=normalizeLine(row.number);const data=cache.get(row.number);
+ $("routeSelect").innerHTML=data.routes.map((r,i)=>'<option value="'+i+'">'+safe(routeLabel(r))+'</option>').join('');$("routeSelect").value=String(row.ri);$("routeSelect").disabled=false;
+ await chooseRoute();if(selectedStation!==station)return;const stop=row.route.stops.find(s=>String(s.code||s.id)===station.code);$("stopSelect").value=String(stop.id);$("stopSelect").disabled=true;$("stopFilter").disabled=true;$("groupSearchStatus").textContent='המסלול והתחנה נבחרו. אפשר להוסיף לקבוצה.';
+}
+function editorDirty(){return JSON.stringify([$("groupName").value,working])!==editorBaseline||!!$("groupSearch").value.trim()}
+function leaveEditor(){if(!editorDirty()||confirm('יש שינויים שלא נשמרו. לצאת בלי לשמור?'))show('home')}
+$("groupSearch").addEventListener('input',()=>{searchRequest++;selectedStation=null;stationRoutes=[];$("lineNumber").value='';lastLineLookup=null;void chooseLine();$("searchSelection").classList.add('hidden');closeGroupSuggestions();clearTimeout(searchTimer);searchTimer=setTimeout(searchGroup,180)});
+$("groupSearch").addEventListener('keydown',e=>{if(e.key==='Escape'){closeGroupSuggestions();return}if($("groupSuggestions").hidden)return;if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();searchActive=searchActive<0?(e.key==='ArrowDown'?0:searchMatches.length-1):(searchActive+(e.key==='ArrowDown'?1:-1)+searchMatches.length)%searchMatches.length;for(const [i,b] of [...$("groupSuggestions").querySelectorAll('button')].entries())b.setAttribute('aria-selected',String(i===searchActive));const id='group-option-'+searchActive;$("groupSearch").setAttribute('aria-activedescendant',id);$(id).scrollIntoView({block:'nearest'})}else if(e.key==='Enter'){e.preventDefault();if(searchActive>=0)void selectGroupMatch(searchActive)}});
+document.addEventListener?.('click',e=>{if(!e.target.closest('.unified-search'))closeGroupSuggestions()});
+window.addEventListener('beforeunload',e=>{if(!$("editor").classList.contains('hidden')&&editorDirty()){e.preventDefault();e.returnValue=''}});
+
 function currentLine(){
  const n=normalizeLine($("lineNumber").value);
  return catalog.lines.find(p=>normalizeLine(p[0])===n)?.[0];
 }
 function applyRouteFilter(){
+ if(selectedStation){renderStationRoutes();return}
  const actual=currentLine(),data=cache.get(actual);
  if(!data)return;
  const q=$("routeFilter").value.trim().toLocaleLowerCase("he");
@@ -635,10 +697,10 @@ async function addLine(silent=false){
   const stop=route?.stops.find(s=>String(s.id)===stopId);
   if(!stop)throw Error("יש לבחור תחנה תקינה.");
   if(!working.some(l=>l.routeId===route.id&&l.stopId===stopId)){
-   working.push({number:actual,routeId:route.id,routeName:routeLabel(route),agency:route.agency||"",agencyId:route.agencyId||"",stopId:String(stop.id),stopCode:String(stop.code||stop.id),stopName:stop.name});
+   working.push({...(selectedStation?{stopIds:route.stops.filter(s=>String(s.code||s.id)===selectedStation.code).map(s=>String(s.id))}:{}),number:actual,routeId:route.id,routeName:routeLabel(route),agency:route.agency||"",agencyId:route.agencyId||"",stopId:String(stop.id),stopCode:String(stop.code||stop.id),stopName:stop.name});
   }
   renderSelected();editorMessage("");
-  $("addStatus").textContent="הקו נוסף בהצלחה ✓";
+  $("addStatus").textContent="הקו נוסף בהצלחה ✓";resetUnifiedSearch();
   $("lineNumber").value="";lastLineLookup=null;$("routeSelect").innerHTML='<option>בחר קו</option>';$("stopSelect").innerHTML='<option>בחר מסלול</option>';
   resetRoutePicker();$("routeSelect").disabled=true;$("stopSelect").disabled=true;$("routeFilter").disabled=true;$("stopFilter").disabled=true;$("routeFilter").value="";$("stopFilter").value="";$("routeCards").innerHTML="";renderLineSuggestions();
   return true;
@@ -648,6 +710,7 @@ async function addLine(silent=false){
 async function saveGroup(){
  if(saveBusy)return;saveBusy=true;$("saveGroup").disabled=true;
  try{
+  if($("groupSearch").value.trim()&&!$("lineNumber").value.trim())throw Error("בחרו קו או תחנה מתוצאות החיפוש והשלימו את הבחירה.");
   const name=$("groupName").value.trim();
   if(!name)throw Error("יש להזין שם לקבוצה.");
   if($("lineNumber").value.trim()&&!await addLine(true))throw Error("הקו האחרון עדיין לא הושלם. בחר מסלול ותחנה או נקה את שדה הקו.");
@@ -970,14 +1033,14 @@ function downloadCSV(list,filename,includeTimetableName=false){
  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=filename+".csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
 document.querySelector(".calendar-preference").onclick=e=>{const button=e.target.closest("[data-calendar]");if(button)updateCalendarView(button.dataset.calendar)};
-$("newGroup").onclick=()=>editGroup(null);$("cancelEdit").onclick=$("cancelEdit2").onclick=()=>show("home");
+$("newGroup").onclick=()=>editGroup(null);$("cancelEdit").onclick=$("cancelEdit2").onclick=leaveEditor;
 $("lineNumber").addEventListener("input",()=>{closedSuggestionsFor=null;clearTimeout(lookupTimer);renderLineSuggestions();lookupTimer=setTimeout(chooseLine,260);});
 $("lineNumber").addEventListener("change",()=>{clearTimeout(lookupTimer);if(currentLine()){closedSuggestionsFor=$("lineNumber").value.trim();$("lineSuggestions").innerHTML="";}chooseLine()});
 $("routeFilter").addEventListener("input",applyRouteFilter);
 $("stopFilter").addEventListener("input",applyStopFilter);
 $("lineSuggestions").onclick=e=>{const b=e.target.closest("[data-suggestion]");if(!b)return;$("lineNumber").value=b.dataset.suggestion;closedSuggestionsFor=$("lineNumber").value.trim();$("lineSuggestions").innerHTML="";$("lineNumber").blur?.();clearTimeout(lookupTimer);void chooseLine()};
-$("routeCards").onclick=e=>{const b=e.target.closest("[data-route]");if(!b)return;$("routeSelect").value=b.dataset.route;void chooseRoute()};
-$("chosenRoute").onclick=e=>{if(e.target.closest("#changeRoute"))reopenRoutePicker()};
+$("routeCards").onclick=e=>{const b=e.target.closest("[data-route]");if(!b)return;if(selectedStation){void chooseStationRoute(Number(b.dataset.route));return}$("routeSelect").value=b.dataset.route;void chooseRoute()};
+$("chosenRoute").onclick=e=>{if(e.target.closest("#changeRoute")){if(selectedStation){$("chosenRoute").classList.add("hidden");$("routeCards").classList.remove("hidden");$("routeFilter").classList.remove("hidden");renderStationRoutes()}else reopenRoutePicker()}};
 $("routeSelect").onchange=chooseRoute;$("addLine").onclick=()=>addLine(false);$("saveGroup").onclick=saveGroup;
 $("selectedLines").addEventListener('toggle',e=>{const details=e.target;if(details.open&&details.dataset.stationIndex!==undefined&&!details.dataset.loaded)stationOptions(Number(details.dataset.stationIndex))},true);
 $("selectedLines").addEventListener('input',e=>{if(e.target.dataset.stationFilter===undefined)return;const q=e.target.value.trim().toLocaleLowerCase('he');const container=$("station-pick-"+e.target.dataset.stationFilter);for(const label of container.querySelectorAll('.station-option'))label.hidden=!!q&&!label.textContent.toLocaleLowerCase('he').includes(q)});

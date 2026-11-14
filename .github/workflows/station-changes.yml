@@ -1,5 +1,12 @@
 name: Build station change history
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/changes_pipeline.py'
+      - 'scripts/weekly_changes.py'
+      - 'scripts/change_bundle.py'
+      - '.github/workflows/station-changes.yml'
   workflow_dispatch:
   schedule:
     - cron: '15 7 * * *'

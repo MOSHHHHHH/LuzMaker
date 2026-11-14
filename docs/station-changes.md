@@ -1,126 +1,98 @@
-# Station change detector
+# What changes at your stop?
 
-The static page `changes.html` is linked from the timetable homepage. All data is
-built using the Python standard library. SQLite is **build-time only**; browsers
-fetch a small index and a hashed per-station JSON file. Existing timetable,
-Hebrew-calendar, CSV and print code is unchanged.
+`changes.html` explains passenger-facing changes, rather than tracking Ministry
+publication revisions. The default view is **all**. Public stop numbers identify
+stations; equal names and opposite directions are never silently combined.
+Saved stations are stored in this browser under `luzmaker-saved-stations-v1`,
+independently of saved timetable groups. Nearby stops can be saved individually.
 
-## Semantics
+## Weekly semantics
 
-We compare successive observations of **the same transport date**, never Monday
-against Tuesday. The rolling start is the same day of the previous calendar
-month, clamped to its last day. The service horizon is enumerated from active
-calendars and addition/removal exceptions for referenced services. Every future
-service date is included; there is no 14/45/90-day cutoff. A transport date can
-extend beyond the calendar horizon because of overnight trips.
+For every fully covered transport day D, compare its latest available schedule
+with the latest available schedule for D+7. A card's effective date is D+7. The
+same feed supplies both days when available; otherwise they can come from different
+feeds. A newer feed replaces only dates it fully covers. Earlier observations,
+including future dates beyond a shorter feed, are preserved. Corrections replace
+old results; publication changes are not presented as passenger alerts.
 
-Times are exact seconds. `(seconds - 10800) // 86400` maps departures into the
-03:00–02:59 day and preserves GTFS times beyond 24:00. Each stop's departure is
-mapped independently, matching the existing timetable builder. Pickup-disabled
-stops stay in the route display but do not create boardable departures.
+The transport day runs from 03:00 to 02:59:59 in Asia/Jerusalem. Exact seconds,
+GTFS times over 24:00, pickup restrictions, simultaneous departures and repeated
+public stop codes are preserved. Station/variant identity uses operator, public
+line, direction and official `route_desc`, with headsign as a fallback.
 
-Identity uses operator, public line number, direction and the official Israeli
-`route_desc` (line licensing/direction/alternative code), falling back to trip
-headsign for feeds without that field. Public stop codes, including their order
-and repetitions, identify route sequences. Volatile route, trip and internal
-stop IDs do not identify a change. Without official variant metadata, equal
-headsigns can group variants; this fallback cannot establish perfect identities
-for arbitrary non-Israeli feeds.
+Coverage is recorded independently of positive departures. Covered absence means
+no service; unknown or partial dates cannot prove a cancellation. Conservative
+edge coverage uses both previous and current midnight shifts. A first feed can
+already establish weekly differences; no second publication is required.
 
-Partial transport dates at feed edges are excluded from comparison, separately
-for each variant. Its minimum/maximum midnight shifts determine which source
-service dates are required. Only dates fully covered in both publications can
-prove additions or cancellations. Complete historical observations are preserved
-when the next feed begins with only a partial night.
+Identical changes are grouped in date order with "החל מ־" and the first affected
+date. A different intervening change or a gap longer than a week starts a new
+card. Returning to an earlier schedule creates its own weekly comparison, not a
+revision of an old card. Exact affected dates and their D/D+7 pairs remain visible
+in details. Holidays are compared as actual service dates, without inventing an
+operating calendar from holiday names.
 
-A first observation is a baseline, including newly extending future horizons.
-Events record the affected date, actual ingestion/detection timestamp, stable ID,
-revision, prior revision ID, service count, first/last departure and mean gap.
-Route events include added/removed stops. Later reversions replace the prior
-revision for that station/date/variant and receive a new ID. Other service dates
-retain their own revisions. A holiday calendar changing between publications is
-a real published revision; an ordinary difference between holiday and weekday
-schedules is not compared.
+## Tags and details
 
-## Compact storage and failure handling
+`weekly_changes.py` compares departure multisets and route sequence hashes.
+Tags select concrete wording (earlier OR later, increased OR decreased), never
+slash-separated alternatives. Added early/late journeys are claimed only when
+all previous departures remain. Otherwise the observed first/last change is
+reported without claiming that a specific journey moved. Interior time changes
+are detected even with unchanged count, first departure and last departure.
+Route and schedule flags are independent, allowing both to change together.
 
-Stop times are streamed into an external SQLite sorter, then processed one trip
-at a time. Per-station/day profiles are content addressed; equal profiles across
-dates share a bitmask. Stop sequences are shared across profiles. Station JSON
-also shares route definitions across all events instead of repeating full routes
-for each effective date. No nationwide station × date tree is held in memory.
-Only the current compressed state plus latest event revision is retained.
+Every card has a "ראה פרטים" button. Schedule changes show all exact departures,
+counts, first/last differences and added/removed multiplicities. Route changes
+show both ordered stop sequences, additions and removals. A route-only change
+does not show schedule details. Combined changes show both. A date picker exposes
+every grouped pair. Acquisition timestamps are secondary source information,
+not a claim about the original publication timestamp.
 
-Required tables, references, trip sequences, calendars, clocks and restored
-SQLite integrity are checked. Missing times or unknown stop references fail the
-build. A decrease of more than 20% and 100 records in route/stop counts, or more than
-50% and 100 records in trip/stop-time counts, or a loss of over half the active
-station profiles and 100 profiles,
-requires investigation; it is not published as mass cancellations. These guards
-can also block legitimate large network changes and should be investigated
-before deliberately accepting a new baseline. No automatic reset occurs.
-Frequency-based `frequencies.txt` feeds are explicitly rejected pending expansion
-support (the tested official feed contains none). GTFS departures over seven days
-are rejected as a corruption guard; service-date horizons have no cutoff.
+## Storage, migration and publication
 
-Builds use temporary files. Failed builds do not advance the durable state.
-The daily workflow uploads state and validated output as one immutable GitHub
-Release asset, then normally pushes a small manifest to `changes-history`.
-A rejected Git push leaves the prior manifest valid. The manifest includes a
-SHA-256 checksum. Its current and previous release assets are retained; uploaded
-orphans and older assets are removed only after a successful manifest commit.
-This keeps binary snapshots out of Git history and has no artifact-expiry limit.
-To recover, first pause history writers, validate the retained previous asset with
-`change_bundle.py restore`, and commit its previous manifest as a **new** normal
-commit on `changes-history`. Then rerun the workflow. The preceding manifest is
-available in that branch's Git history. Never force-push or silently initialize
-an empty history to recover from a bad asset.
-The prerelease `station-change-state` and its assets must not be manually deleted.
-The existing preliminary JSON state schema is intentionally not silently imported.
-If a legacy history branch exists, migrate it explicitly before enabling this
-version. No such branch existed during development.
+The Python pipeline uses streamed GTFS input and scratch SQLite, with compressed
+SQLite as its durable state. Repeated per-station/day profiles share date masks.
+Coverage stores disjoint masks by variant and acquisition timestamp. Browsers
+fetch small per-station summaries; full profiles and route definitions are loaded
+on demand from `details/<station-hash>.json` and shared across comparisons.
 
-GitHub Actions serializes history writers. Pages reads a complete manifest and
-asset, validates both, and deploys an atomic Pages artifact. It is triggered after
-a successful history run as well as by the existing timetable schedule. A failed
-history or Pages build preserves the last deployment. Timetable generation and
-station processing remain separate; the detector cannot mutate timetable output.
+Schema v4 restores v3 state without deleting it. It preserves profiles and route
+definitions, seeds coverage only for provably complete dates in the previous
+snapshot, and rebuilds weekly events. V3's publication revision events are not
+imported as weekly passenger changes. Historical v3 dates whose full coverage
+cannot be established remain unproven, rather than being interpreted as absence.
+The bundle validator accepts v3 for restoration and verifies v4 day pairs and
+all profile/route detail references before promotion.
 
-## Historical coverage
+Corrupt state, malformed input, missing trip times, unsupported frequency feeds,
+and suspicious nationwide feed shrinkage fail without replacing valid output.
+State and site data remain one immutable release asset with checksummed manifest,
+serialized history writers, retained previous asset and atomic Pages deployment.
+Pages retains the current live site until v4 weekly data is available. Changes
+to the weekly pipeline trigger its build; successful completion triggers Pages.
+No production state is reset by deployment.
 
-`backfill_changes.py` attempts two full snapshots from the public
-[Open Bus archive](https://github.com/hasadna/open-bus-pipelines/blob/main/STRIDE_ETL_PROCESSES.md):
+Open Bus bootstrap samples the start of the rolling month and yesterday when no
+state exists. It recovers available schedules, not every intermediate revision.
+Archive failures are explicit; the official feed must still validate. Existing
+state is never silently discarded. Original archive metadata and acquisition
+stamps are kept separate.
 
-- The start of the rolling month, as a baseline for historical service dates.
-- Yesterday, to establish a recent published comparison before today's feed.
-
-Archive paths are
-`https://openbus-stride-public.s3.eu-west-1.amazonaws.com/gtfs_archive/YYYY/MM/DD/israel-public-transportation.zip`.
-The original URL, archive date and HTTP Last-Modified are recorded separately.
-All event detection timestamps are **ingestion time**, never an invented original
-publication time. These sampled snapshots restore historical schedules; they do
-not reconstruct every daily publication or every reverted change in the gap.
-The UI states this limitation. Archive failure is logged and initialization falls
-back to the earliest snapshot actually obtained. The next official feed must
-still validate successfully before anything is published.
-
-A complete daily archive replay can be performed using `changes_pipeline.run`
-with each snapshot's service date, in chronological order; it is intentionally
-not presented as having happened in the two-snapshot bootstrap.
-
-## Run and validate
+## Validation
 
 ```sh
 python -m unittest discover -s tests -v
-python scripts/backfill_changes.py --state work/state.sqlite.gz --output work/changes
-python scripts/build_changes.py --zip /path/to/official.zip --state work/state.sqlite.gz --output work/changes
-python scripts/change_bundle.py bundle work work/bundle.zip
-node tests/changes-browser-smoke.cjs  # playwright + Chromium
+node tests/ui-smoke.cjs
+node tests/changes-browser-smoke.cjs
+node tests/station-tools-browser-smoke.cjs
+node tests/pdf-print-smoke.cjs
 ```
 
-The index reports measured build time, peak process memory (Linux ru_maxrss),
-input counts, service horizon, transport dates processed, compressed state size,
-published JSON bytes and event counts. Archive and current builds should be run
-in separate Python processes when comparing individual peak memory values.
-
-ראו [דוח מדידות ואימות נתוני אמת](station-changes-validation.md).
+Integration checks cover latest-day replacement, cross-publication D+7 pairs,
+shorter horizons, midnight edges, resumption of an earlier schedule, v3 migration,
+state/bundle recovery and full details. Browser checks exercise both search
+entry paths, same-name stations, platform aggregation, saved stations, default
+all, conditional details, retry states, mobile layout, 03:00 rollover, unsaved
+edits and existing PDF/CSV exports. National-scale performance figures in older
+validation reports predate this schema and must not be treated as v4 measurements.
